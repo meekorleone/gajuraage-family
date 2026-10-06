@@ -210,26 +210,23 @@ function subscribe() {
     .subscribe();
 }
 
-function renderLogin(sentTo) {
+function renderLogin() {
   app.innerHTML = `<div class="login"><div class="card">
     <h1>Gajuraage</h1>
     <p class="muted" style="margin-top:0">Family rent portal for Ma. Gajuraage, K. Malé</p>
-    ${sentTo ? `<p>A sign-in link is on its way to <b>${esc(sentTo)}</b>. Open it on this device to continue.</p>
-      <button class="btn ghost" data-act="login-again">Use a different email</button>` : `
     <form id="loginForm">
-      <label class="f">Your email<input type="email" name="email" required autocomplete="email" placeholder="name@example.com"></label>
-      <button class="btn" type="submit" style="width:100%;justify-content:center">Email me a sign-in link</button>
-      <p class="help" style="margin-top:12px">Only family members whose email is on the list can see the figures. No password needed.</p>
-    </form>`}
+      <label class="f">Email<input type="email" name="email" required autocomplete="username" placeholder="name@example.com"></label>
+      <label class="f">Password<input type="password" name="password" required autocomplete="current-password"></label>
+      <button class="btn" type="submit" style="width:100%;justify-content:center">Sign in</button>
+      <p class="help" style="margin-top:12px">Forgotten your password or don't have one yet? Ask Meekail to set it for you.</p>
+    </form>
   </div></div>`;
   const f = document.getElementById('loginForm');
-  if (f) f.onsubmit = async e => {
+  f.onsubmit = async e => {
     e.preventDefault();
-    const email = f.email.value.trim();
-    f.querySelector('button').disabled = true;
-    const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
-    if (error) { toast(error.message); f.querySelector('button').disabled = false; return; }
-    renderLogin(email);
+    const btn = f.querySelector('button'); btn.disabled = true;
+    const { error } = await sb.auth.signInWithPassword({ email: f.elements.email.value.trim().toLowerCase(), password: f.elements.password.value });
+    if (error) { toast(error.message === 'Invalid login credentials' ? 'Email or password is incorrect' : error.message); btn.disabled = false; }
   };
 }
 
@@ -253,7 +250,7 @@ function render() {
   app.innerHTML = `
   <header class="top"><div class="wrap">
     <div><h1>Gajuraage</h1><div class="sub">${esc(d.settings.building_name)} · live as of ${fDate(d.today)}</div></div>
-    <div class="who">${esc(d.me?.name || S.session.user.email)}${admin ? ' · admin' : ''}<br><button data-act="signout">Sign out</button></div>
+    <div class="who">${esc(d.me?.name || S.session.user.email)}${admin ? ' · admin' : ''}<br><button data-act="mypass">Change password</button> <button data-act="signout">Sign out</button></div>
   </div></header>
   <nav class="tabs"><div class="wrap">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${S.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div></nav>
   <main><div class="wrap">${views[S.tab]()}</div></main>`;
@@ -498,7 +495,7 @@ function adminView() {
   <div class="card adminlist">${d.leases.map(l => { const st = C.leaseStatus(l, d.today); return `<div class="item"><div><b>${esc(l.tenant_name)}</b> · ${esc(d.spaceById[l.space_id]?.name)}<div class="small muted">${mvr(l.monthly_rent)} · ${fDate(l.start_date)} to ${l.end_date ? fDate(l.end_date) : 'open'}</div></div><div class="row" style="gap:6px">${chip(LSTAT[st.key], st.label)}<button class="btn ghost small" data-edit="leases:${l.id}">Edit</button></div></div>`; }).join('')}</div>
 
   <div class="section-head"><h2>Family members</h2><button class="btn small" data-act="member-new">Add member</button></div>
-  <div class="card adminlist">${d.members.map(m => `<div class="item"><div><b>${esc(m.name)}</b> ${!m.active ? chip('', 'inactive') : ''}${m.is_admin ? chip('brand', 'admin') : ''}<div class="small muted">${esc(m.email || 'no email yet, cannot sign in')} · ${{ fixed: 'fixed share', equal: 'equal share', none: 'no share' }[m.share_type]}</div></div><button class="btn ghost small" data-edit="members:${m.id}">Edit</button></div>`).join('')}</div>
+  <div class="card adminlist">${d.members.map(m => `<div class="item"><div><b>${esc(m.name)}</b> ${!m.active ? chip('', 'inactive') : ''}${m.is_admin ? chip('brand', 'admin') : ''}<div class="small muted">${esc(m.email || 'no email yet, cannot sign in')} · ${{ fixed: 'fixed share', equal: 'equal share', none: 'no share' }[m.share_type]}</div></div><div class="row" style="gap:6px">${m.email ? `<button class="btn ghost small" data-setpw="${m.id}">Set password</button>` : ''}<button class="btn ghost small" data-edit="members:${m.id}">Edit</button></div></div>`).join('')}</div>
 
   <div class="section-head"><h2>Settings</h2><button class="btn ghost small" data-act="settings">Edit</button></div>
   <div class="card"><table><tbody>
@@ -688,6 +685,24 @@ function editRecord(table, id) {
   }
 }
 
+function setPasswordForm(id) {
+  const m = S.data.memberById[id];
+  const suggestion = Array.from(crypto.getRandomValues(new Uint8Array(9)), b => 'abcdefghjkmnpqrstuvwxyz23456789'[b % 31]).join('').replace(/(.{3})(.{3})(.{3})/, '$1-$2-$3');
+  openForm({ title: 'Set password for ' + m.name, fields: [
+    { name: 'password', label: 'Password', required: true, help: 'At least 8 characters. Share it privately; they can change it after signing in.' }],
+    values: { password: suggestion },
+    intro: `<p class="help" style="margin:-6px 0 12px">Signs in with <b>${esc(m.email)}</b>. If they already have a password, this replaces it.</p>`,
+    submit: async v => {
+      const { data, error } = await sb.functions.invoke('admin-users', { body: { email: m.email, password: v.password } });
+      if (error) {
+        let msg = error.message;
+        try { msg = (await error.context.json()).error || msg; } catch (_) {}
+        toast(msg); return false;
+      }
+      toast((data.action === 'created' ? 'Login created for ' : 'Password reset for ') + m.name, 4500);
+    } });
+}
+
 /* ---------- exports ---------- */
 function download(name, text, type = 'text/csv') {
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
@@ -737,7 +752,8 @@ function pdfReport() {
 
 /* ---------- events ---------- */
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-tab],[data-act],[data-del],[data-edit]');
+  const t = e.target.closest('[data-tab],[data-act],[data-del],[data-edit],[data-setpw]');
+  if (t && t.dataset.setpw) return setPasswordForm(t.dataset.setpw);
   if (!t) return;
   if (t.dataset.tab) { S.tab = t.dataset.tab; window.scrollTo(0, 0); return render(); }
   if (t.dataset.del) { const [tb, id] = t.dataset.del.split(':'); if (confirm('Delete this entry permanently? It will still appear in the activity log.')) del(tb, id); return; }
@@ -745,7 +761,16 @@ document.addEventListener('click', e => {
   const d = S.data;
   switch (t.dataset.act) {
     case 'signout': S.channel && sb.removeChannel(S.channel); S.channel = null; sb.auth.signOut(); break;
-    case 'login-again': renderLogin(); break;
+    case 'mypass': openForm({ title: 'Change your password', fields: [
+      { name: 'p1', label: 'New password', type: 'password', required: true, help: 'At least 8 characters' },
+      { name: 'p2', label: 'Repeat new password', type: 'password', required: true }],
+      submit: async v => {
+        if ((v.p1 || '').length < 8) { toast('Use at least 8 characters'); return false; }
+        if (v.p1 !== v.p2) { toast('The two passwords do not match'); return false; }
+        const { error } = await sb.auth.updateUser({ password: v.p1 });
+        if (error) { toast(error.message); return false; }
+        toast('Password changed');
+      } }); break;
     case 'pay': payForm(); break;
     case 'payouts': payoutsForm(); break;
     case 'expense': openForm({ title: 'Building expense', fields: [
