@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gajuraage Family Rent</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230f5c5c'/><path d='M8 25V13l8-6 8 6v12h-5v-7h-6v7z' fill='%23f6f1e7'/></svg>">
+<style>
+:root{
+  --bg:#f6f1e7;--surface:#fffdf8;--surface-2:#efe8da;--ink:#1d2a2e;--muted:#5d6b6e;--line:#e2d9c8;
+  --brand:#0f5c5c;--brand-ink:#f6f1e7;--brand-soft:#d9ebe8;
+  --good:#2f7d4f;--good-soft:#dcefe2;--warn:#a2650f;--warn-soft:#f6e7cc;--bad:#b3402c;--bad-soft:#f7dcd5;
+  --radius:14px;--shadow:0 1px 2px rgba(29,42,46,.06),0 4px 18px rgba(29,42,46,.05);
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#121a1c;--surface:#1a2427;--surface-2:#222e31;--ink:#ecf0ee;--muted:#9fb0b1;--line:#2c3a3d;
+  --brand:#5fb3a8;--brand-ink:#0e1a1b;--brand-soft:#1d3a38;
+  --good:#6cc28d;--good-soft:#1c3326;--warn:#e0a650;--warn-soft:#3a2d17;--bad:#ec8b78;--bad-soft:#3d221d;
+  --shadow:none;}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:Fraunces,Georgia,serif;font-weight:650;letter-spacing:-.01em;margin:0}
+h2{font-size:1.35rem;margin:28px 0 12px}
+h3{font-size:1.05rem}
+a{color:var(--brand)}
+.wrap{max-width:1120px;margin:0 auto;padding:0 16px}
+header.top{background:var(--brand);color:var(--brand-ink)}
+header.top .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:16px;padding-bottom:14px}
+header.top h1{font-size:1.3rem}
+header.top .sub{opacity:.8;font-size:.82rem}
+header.top .who{font-size:.8rem;text-align:right;opacity:.9}
+header.top button{background:transparent;color:inherit;border:1px solid currentColor;opacity:.85;padding:4px 10px;border-radius:999px;font-size:.78rem;cursor:pointer;margin-top:4px}
+nav.tabs{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+nav.tabs .wrap{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+nav.tabs button{flex:none;background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);font:500 .92rem Inter,sans-serif;padding:13px 12px 10px;cursor:pointer}
+nav.tabs button.on{color:var(--ink);border-bottom-color:var(--brand)}
+main{padding-bottom:60px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px}
+.grid{display:grid;gap:12px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-top:20px}
+.kpi .l{font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.kpi .v{font-family:Fraunces,serif;font-size:1.45rem;font-weight:650;margin-top:2px;font-variant-numeric:tabular-nums}
+.kpi .n{font-size:.8rem;color:var(--muted)}
+.kpi.bad .v{color:var(--bad)} .kpi.good .v{color:var(--good)}
+.cols{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:.75rem;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--surface-2);color:var(--muted);white-space:nowrap}
+.chip.good{background:var(--good-soft);color:var(--good)}.chip.warn{background:var(--warn-soft);color:var(--warn)}.chip.bad{background:var(--bad-soft);color:var(--bad)}.chip.brand{background:var(--brand-soft);color:var(--brand)}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600;background:var(--surface)}
+td.num,th.num{text-align:right;white-space:nowrap}
+tfoot td{font-weight:600;border-bottom:0}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+.tablewrap table tr:last-child td{border-bottom:0}
+.muted{color:var(--muted)} .small{font-size:.82rem}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.between{justify-content:space-between}
+.lease h3{margin-bottom:2px}
+.lease dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:12px 0;font-size:.88rem}
+.lease dt{color:var(--muted)} .lease dd{margin:0;font-variant-numeric:tabular-nums}
+.bar{height:6px;background:var(--surface-2);border-radius:99px;overflow:hidden;margin:6px 0 2px}
+.bar i{display:block;height:100%;background:var(--brand)}
+.strip{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.strip span{width:30px;height:26px;border-radius:6px;font-size:.62rem;display:grid;place-items:center;font-weight:600;background:var(--surface-2);color:var(--muted)}
+.strip .ontime{background:var(--good-soft);color:var(--good)}.strip .late{background:var(--warn-soft);color:var(--warn)}
+.strip .unpaid,.strip .partial{background:var(--bad-soft);color:var(--bad)}
+.bars{display:flex;align-items:flex-end;gap:8px;height:150px;padding-top:10px}
+.bars div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:28px}
+.bars b{display:block;width:100%;max-width:44px;background:var(--brand);border-radius:6px 6px 0 0;min-height:2px}
+.bars b.prog{background:repeating-linear-gradient(45deg,var(--brand),var(--brand) 4px,var(--brand-soft) 4px,var(--brand-soft) 8px)}
+.bars small{font-size:.68rem;color:var(--muted);margin-top:4px;white-space:nowrap}
+.alert{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:.9rem}
+.alert:last-child{border-bottom:0}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--brand);color:var(--brand-ink);border:0;border-radius:10px;padding:9px 14px;font:600 .88rem Inter,sans-serif;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--brand);border:1px solid var(--line)}
+.btn.small{padding:5px 10px;font-size:.78rem}
+.btn.danger{background:transparent;color:var(--bad);border:1px solid var(--line)}
+.btn:disabled{opacity:.5;cursor:default}
+.iconbtn{background:none;border:0;color:var(--muted);cursor:pointer;font-size:1rem;padding:2px 6px}
+.iconbtn:hover{color:var(--bad)}
+label.f{display:block;font-size:.8rem;color:var(--muted);font-weight:500;margin-bottom:10px}
+label.f input,label.f select,label.f textarea,select.inline,input.inline{display:block;width:100%;margin-top:4px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:15px Inter,sans-serif}
+select.inline,input.inline{display:inline-block;width:auto;margin:0}
+label.chk{display:flex;gap:8px;align-items:center;font-size:.9rem;margin-bottom:10px}
+.help{font-size:.75rem;color:var(--muted);margin-top:3px}
+dialog{border:0;border-radius:18px;padding:0;width:min(560px,calc(100vw - 24px));background:var(--surface);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.3)}
+dialog::backdrop{background:rgba(15,30,32,.45)}
+dialog form{padding:20px}
+dialog h3{margin-bottom:14px;font-size:1.2rem}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+@media (max-width:520px){.two{grid-template-columns:1fr}}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:.88rem;z-index:50;max-width:90vw}
+.login{max-width:420px;margin:12vh auto;padding:0 16px}
+.login .card{padding:26px}
+.login h1{font-size:1.7rem;margin-bottom:6px}
+.empty{padding:28px;text-align:center;color:var(--muted)}
+.section-head{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap;margin:28px 0 12px}
+.section-head h2{margin:0}
+.note{background:var(--warn-soft);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:.85rem;margin-top:16px}
+.adminlist .item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.adminlist .item:last-child{border-bottom:0}
+</style>
+</head>
+<body>
+<div id="app"><div class="empty">Loading…</div></div>
+<dialog id="dlg"></dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="config.js"></script>
+<script src="calc.js"></script>
+<script>
+const C = window.Calc;
+const sb = supabase.createClient(GAJ_CONFIG.supabaseUrl, GAJ_CONFIG.supabaseKey);
+const TZ = 'Indian/Maldives';
+const todayStr = () => new Date().toLocaleDateString('en-CA', { timeZone: TZ });
+var S = window.S = { session: null, data: null, tab: 'overview', showEnded: false, rep: {}, colFilter: '', channel: null };
+const app = document.getElementById('app');
+const dlg = document.getElementById('dlg');
+
+/* ---------- formatting ---------- */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const num = n => (+n || 0).toLocaleString('en-GB', { minimumFractionDigits: (+n % 1) ? 2 : 0, maximumFractionDigits: 2 });
+const mvr = n => 'MVR ' + num(n);
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const fDate = s => { if (!s) return ''; const [y, m, d] = s.split('-'); return +d + ' ' + MON[+m - 1] + ' ' + y; };
+const fMonth = k => { if (!k) return ''; const [y, m] = k.split('-'); return MON[+m - 1] + ' ' + y; };
+const fMonthShort = k => { const [y, m] = k.split('-'); return MON[+m - 1] + ' ' + y.slice(2); };
+const toast = (msg, ms = 3200) => { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), ms); };
+
+const STATUS = {
+  ontime: ['good', () => 'Paid on time'], late: ['warn', r => `Paid ${r.daysLate}d late`],
+  due: ['', r => 'Due ' + fDate(r.deadline)], partdue: ['', r => 'Part paid, due ' + fDate(r.deadline)],
+  partial: ['bad', r => `Part paid, ${r.daysLate}d overdue`], unpaid: ['bad', r => `Unpaid, ${r.daysLate}d overdue`]
+};
+const LSTAT = { active: 'good', expiring: 'warn', ended: '', upcoming: 'brand' };
+const RECORD = { clean: 'good', late: 'warn', arrears: 'bad', none: '' };
+const chip = (cls, text) => `<span class="chip ${cls}">${esc(text)}</span>`;
+
+function fineText(l, settings) {
+  const v = +l.fine_value;
+  if (l.fine_type === 'daily') return `${mvr(v)} per day late` + (+settings.fine_cap_pct ? `, capped at ${num(settings.fine_cap_pct)}% of rent` : '');
+  if (l.fine_type === 'percent') return `${num(v)}% of monthly rent if late`;
+  if (l.fine_type === 'flat') return `${mvr(v)} flat if late`;
+  return 'No late fine recorded';
+}
+const ord = n => n + (['th','st','nd','rd'][(n % 100 - 20) % 10] || ['th','st','nd','rd'][n % 100] || 'th');
+
+/* ---------- auth + data ---------- */
+async function init() {
+  if (GAJ_CONFIG.supabaseUrl.startsWith('SUPABASE')) { app.innerHTML = '<div class="empty">App is not connected to its database yet.</div>'; return; }
+  const { data: { session } } = await sb.auth.getSession();
+  S.session = session;
+  sb.auth.onAuthStateChange((evt, s) => {
+    const changed = (s?.user?.id) !== (S.session?.user?.id);
+    S.session = s;
+    if (changed) boot();
+  });
+  boot();
+}
+
+function boot() {
+  if (!S.session) return renderLogin();
+  load();
+}
+
+async function load() {
+  const q = (t, o, asc = true) => sb.from(t).select('*').order(o, { ascending: asc });
+  const res = await Promise.all([
+    sb.from('settings').select('*').maybeSingle(), q('members', 'sort'), q('spaces', 'sort'), q('leases', 'start_date'),
+    q('payments', 'received_on', false), q('expenses', 'spent_on', false), q('distributions', 'paid_on', false),
+    sb.from('audit_log').select('*').order('at', { ascending: false }).limit(150)
+  ]);
+  const err = res.find(r => r.error);
+  if (err) { app.innerHTML = `<div class="empty">Could not load data: ${esc(err.error.message)}</div>`; return; }
+  const [settings, members, spaces, leases, payments, expenses, distributions, audit] = res.map(r => r.data);
+  if (!settings) return renderNotMember();
+  const email = S.session.user.email.toLowerCase();
+  const me = members.find(m => (m.email || '').toLowerCase() === email);
+  S.data = { settings, members, spaces, leases, payments, expenses, distributions, audit, me };
+  compute();
+  render();
+  subscribe();
+}
+
+function compute() {
+  const d = S.data, t = todayStr();
+  d.today = t;
+  d.spaceById = Object.fromEntries(d.spaces.map(s => [s.id, s]));
+  d.leaseById = Object.fromEntries(d.leases.map(l => [l.id, l]));
+  d.memberById = Object.fromEntries(d.members.map(m => [m.id, m]));
+  d.sched = {};
+  for (const l of d.leases) d.sched[l.id] = C.leaseSchedule(l, d.payments, d.settings, t);
+  d.wf = C.waterfall(d.members, d.payments, d.expenses, d.settings, t);
+  d.sharers = d.members.filter(m => m.active && m.share_type !== 'none');
+  d.statements = Object.fromEntries(d.sharers.map(m => [m.id, C.memberStatement(m, d.wf, d.distributions)]));
+  d.liveLeases = d.leases.filter(l => ['active', 'expiring'].includes(C.leaseStatus(l, t).key));
+}
+
+let reloadTimer;
+function subscribe() {
+  if (S.channel) return;
+  S.channel = sb.channel('gajuraage-live')
+    .on('postgres_changes', { event: '*', schema: 'public' }, () => { clearTimeout(reloadTimer); reloadTimer = setTimeout(load, 600); })
+    .subscribe();
+}
+
+function renderLogin(sentTo) {
+  app.innerHTML = `<div class="login"><div class="card">
+    <h1>Gajuraage</h1>
+    <p class="muted" style="margin-top:0">Family rent portal for Ma. Gajuraage, K. Malé</p>
+    ${sentTo ? `<p>A sign-in link is on its way to <b>${esc(sentTo)}</b>. Open it on this device to continue.</p>
+      <button class="btn ghost" data-act="login-again">Use a different email</button>` : `
+    <form id="loginForm">
+      <label class="f">Your email<input type="email" name="email" required autocomplete="email" placeholder="name@example.com"></label>
+      <button class="btn" type="submit" style="width:100%;justify-content:center">Email me a sign-in link</button>
+      <p class="help" style="margin-top:12px">Only family members whose email is on the list can see the figures. No password needed.</p>
+    </form>`}
+  </div></div>`;
+  const f = document.getElementById('loginForm');
+  if (f) f.onsubmit = async e => {
+    e.preventDefault();
+    const email = f.email.value.trim();
+    f.querySelector('button').disabled = true;
+    const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
+    if (error) { toast(error.message); f.querySelector('button').disabled = false; return; }
+    renderLogin(email);
+  };
+}
+
+function renderNotMember() {
+  app.innerHTML = `<div class="login"><div class="card">
+    <h1>Not on the list yet</h1>
+    <p>You're signed in as <b>${esc(S.session.user.email)}</b>, but this email isn't on the Gajuraage family list.</p>
+    <p class="muted">Ask Meekail to add it, then refresh this page.</p>
+    <button class="btn ghost" data-act="signout">Sign out</button></div></div>`;
+}
+
+/* ---------- layout ---------- */
+const TABS = [['overview', 'Overview'], ['leases', 'Leases'], ['collections', 'Collections'], ['shares', 'Shares'], ['report', 'My report'], ['activity', 'Activity'], ['admin', 'Admin']];
+
+function render() {
+  const d = S.data, admin = d.me?.is_admin;
+  const tabs = TABS.filter(([k]) => k !== 'admin' || admin);
+  if (!tabs.find(([k]) => k === S.tab)) S.tab = 'overview';
+  const views = { overview, leases: leasesView, collections, shares, report, activity, admin: adminView };
+  const y = window.scrollY;
+  app.innerHTML = `
+  <header class="top"><div class="wrap">
+    <div><h1>Gajuraage</h1><div class="sub">${esc(d.settings.building_name)} · live as of ${fDate(d.today)}</div></div>
+    <div class="who">${esc(d.me?.name || S.session.user.email)}${admin ? ' · admin' : ''}<br><button data-act="signout">Sign out</button></div>
+  </div></header>
+  <nav class="tabs"><div class="wrap">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${S.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div></nav>
+  <main><div class="wrap">${views[S.tab]()}</div></main>`;
+  window.scrollTo(0, y);
+  afterRender();
+}
+
+function afterRender() {
+  const sel = document.getElementById('repMember');
+  if (sel) ['repMember', 'repFrom', 'repTo'].forEach(id => document.getElementById(id).onchange = e => { S.rep[id] = e.target.value; render(); });
+  const cf = document.getElementById('colFilter');
+  if (cf) cf.onchange = e => { S.colFilter = e.target.value; render(); };
+  const se = document.getElementById('showEnded');
+  if (se) se.onchange = e => { S.showEnded = e.target.checked; render(); };
+}
+
+/* ---------- views ---------- */
+function overview() {
+  const d = S.data, wf = d.wf, s = d.settings;
+  const cur = wf.months[wf.months.length - 1] || { rent: 0, fines: 0, month: C.monthKey(d.today) };
+  const collected = wf.months.reduce((a, m) => a + m.rent + m.fines, 0);
+  const rentRoll = d.liveLeases.reduce((a, l) => a + +l.monthly_rent, 0);
+  const sums = Object.values(d.sched).map(x => x.summary);
+  const arrears = sums.reduce((a, x) => a + x.arrears, 0);
+  const fines = sums.reduce((a, x) => a + x.finesOutstanding, 0);
+  const paidOut = d.distributions.reduce((a, x) => a + +x.amount, 0);
+  const entitled = Object.values(d.statements).reduce((a, x) => a + x.entitled, 0);
+  const eq = wf.equalIds.length, fixedN = wf.fixedIds.length;
+  const perSib = eq ? Math.max(0, rentRoll - +s.fixed_amount * fixedN) / eq : 0;
+  const maxBar = Math.max(1, rentRoll, ...wf.months.map(m => m.rent + m.fines));
+  const months = wf.months.slice(-12);
+
+  const alerts = [];
+  for (const l of d.leases) {
+    const sc = d.sched[l.id], st = C.leaseStatus(l, d.today), name = `${esc(l.tenant_name)} · ${esc(d.spaceById[l.space_id]?.name)}`;
+    if (sc.summary.arrears > 0) alerts.push(['bad', 'Arrears', `${name}: ${mvr(sc.summary.arrears)} overdue across ${sc.summary.overdueMonths} month(s)`]);
+    if (sc.summary.finesOutstanding > 0) alerts.push(['warn', 'Fine', `${name}: ${mvr(sc.summary.finesOutstanding)} in late fines not yet collected`]);
+    if (st.key === 'expiring') alerts.push(['warn', 'Expiring', `${name}: agreement ends ${fDate(l.end_date)} (${C.daysBetween(d.today, l.end_date)} days)`]);
+    if (st.key === 'upcoming') alerts.push(['brand', 'Starting', `${name}: starts ${fDate(l.start_date)} at ${mvr(l.monthly_rent)}`]);
+    if (!l.end_date && ['active'].includes(st.key)) alerts.push(['', 'Data', `${name}: agreement end date not recorded`]);
+  }
+  return `
+  <div class="grid kpis">
+    <div class="card kpi"><div class="l">Collected ${fMonth(cur.month)}</div><div class="v">${mvr(cur.rent + cur.fines)}</div><div class="n">of ${mvr(rentRoll)} monthly rent roll</div></div>
+    <div class="card kpi"><div class="l">Collected since ${fMonthShort(C.monthKey(s.tracking_start))}</div><div class="v">${mvr(collected)}</div><div class="n">rent and fines received</div></div>
+    <div class="card kpi ${arrears ? 'bad' : 'good'}"><div class="l">Rent overdue</div><div class="v">${mvr(arrears)}</div><div class="n">${fines ? mvr(fines) + ' fines outstanding' : 'no fines outstanding'}</div></div>
+    <div class="card kpi"><div class="l">Paid out to family</div><div class="v">${mvr(paidOut)}</div><div class="n">${mvr(Math.max(0, entitled - paidOut))} earned, not yet paid out</div></div>
+  </div>
+  <div class="grid cols" style="margin-top:12px">
+    <div class="card">
+      <div class="row between"><h3>Monthly collections</h3><span class="small muted">Striped = month in progress</span></div>
+      ${months.length ? `<div class="bars">${months.map(m => `<div title="${fMonth(m.month)}: ${mvr(m.rent + m.fines)}"><span class="small" style="font-size:.66rem">${num(Math.round((m.rent + m.fines) / 1000))}k</span><b class="${m.inProgress ? 'prog' : ''}" style="height:${Math.round((m.rent + m.fines) / maxBar * 100)}%"></b><small>${fMonthShort(m.month)}</small></div>`).join('')}</div>` : '<div class="empty">No months tracked yet</div>'}
+    </div>
+    <div class="card">
+      <h3>How a full month is shared</h3>
+      <table style="margin-top:8px"><tbody>
+        <tr><td>Monthly rent roll</td><td class="num">${mvr(rentRoll)}</td></tr>
+        ${d.members.filter(m => m.active && m.share_type === 'fixed').map(m => `<tr><td>${esc(m.name)} (fixed, paid first)</td><td class="num">− ${mvr(s.fixed_amount)}</td></tr>`).join('')}
+        <tr><td>Balance shared equally by ${eq}</td><td class="num">${mvr(Math.max(0, rentRoll - +s.fixed_amount * fixedN))}</td></tr>
+        <tr><td><b>Each sibling</b></td><td class="num"><b>${mvr(C.r2(perSib))}</b></td></tr>
+      </tbody></table>
+      <p class="help">Shares are worked out on cash actually received in each month, after any building expenses.</p>
+    </div>
+  </div>
+  <div class="section-head"><h2>Needs attention</h2></div>
+  <div class="card">${alerts.length ? alerts.map(([c, t, m]) => `<div class="alert">${chip(c, t)}<div>${m}</div></div>`).join('') : '<div class="empty">Nothing outstanding. All rent due has been paid.</div>'}</div>
+  <div class="section-head"><h2>Latest collections</h2><button class="btn ghost small" data-tab="collections">See all</button></div>
+  ${paymentsTable(d.payments.slice(0, 6), false)}`;
+}
+
+function leaseCard(l) {
+  const d = S.data, sc = d.sched[l.id], st = C.leaseStatus(l, d.today), sp = d.spaceById[l.space_id];
+  let prog = '';
+  if (l.end_date) {
+    const total = C.daysBetween(l.start_date, l.end_date), done = Math.min(total, Math.max(0, C.daysBetween(l.start_date, d.today)));
+    const left = C.daysBetween(d.today, l.end_date);
+    prog = `<div class="bar"><i style="width:${total ? Math.round(done / total * 100) : 0}%"></i></div><div class="small muted">${left >= 0 ? left + ' days remaining' : 'Ended ' + fDate(l.end_date)}</div>`;
+  }
+  return `<div class="card lease">
+    <div class="row between"><div><h3>${esc(sp?.name)}</h3><div class="muted small">${esc(l.tenant_name)}${l.tenant_contact ? ' · ' + esc(l.tenant_contact) : ''}</div></div>
+      <div class="row" style="gap:6px">${chip(LSTAT[st.key], st.label)}${chip(RECORD[sc.record.key], sc.record.label)}</div></div>
+    <dl>
+      <dt>Rent</dt><dd><b>${mvr(l.monthly_rent)}</b> a month</dd>
+      <dt>Term</dt><dd>${fDate(l.start_date)} to ${l.end_date ? fDate(l.end_date) : '<span class="muted">end date to confirm</span>'}${prog}</dd>
+      <dt>Due</dt><dd>${ord(+l.due_day)} of each month${+l.grace_days ? `, ${l.grace_days} days' grace` : ''}</dd>
+      <dt>Late fine</dt><dd>${esc(fineText(l, d.settings))}</dd>
+      ${l.agreement_ref ? `<dt>Agreement</dt><dd>${esc(l.agreement_ref)}</dd>` : ''}
+      <dt>Paid</dt><dd>${mvr(sc.summary.rentPaid)} of ${mvr(sc.summary.rentDue)} due${sc.summary.arrears ? ` · <b style="color:var(--bad)">${mvr(sc.summary.arrears)} overdue</b>` : ''}</dd>
+      <dt>Fines</dt><dd>${mvr(sc.summary.finesAccrued)} charged · ${mvr(sc.summary.finesPaid)} collected${sc.summary.finesOutstanding ? ` · <b style="color:var(--warn)">${mvr(sc.summary.finesOutstanding)} owed</b>` : ''}</dd>
+      ${l.notes ? `<dt>Notes</dt><dd class="muted">${esc(l.notes)}</dd>` : ''}
+    </dl>
+    ${sc.rows.length ? `<div class="small muted">Month by month</div><div class="strip">${sc.rows.map(r => `<span class="${r.status}" title="${fMonth(r.month)}: ${esc(STATUS[r.status][1](r))}${r.rentPaid ? ' · paid ' + mvr(r.rentPaid) : ''}">${MON[+r.month.slice(5) - 1]}</span>`).join('')}</div>` : ''}
+  </div>`;
+}
+
+function leasesView() {
+  const d = S.data;
+  const list = d.leases.filter(l => S.showEnded || C.leaseStatus(l, d.today).key !== 'ended')
+    .sort((a, b) => (d.spaceById[a.space_id]?.sort ?? 0) - (d.spaceById[b.space_id]?.sort ?? 0) || (a.start_date < b.start_date ? -1 : 1));
+  const ended = d.leases.length - d.leases.filter(l => C.leaseStatus(l, d.today).key !== 'ended').length;
+  const vacant = d.spaces.filter(sp => !d.liveLeases.some(l => l.space_id === sp.id));
+  return `<div class="section-head"><h2>Agreements</h2>
+    ${ended ? `<label class="chk small" style="margin:0"><input type="checkbox" id="showEnded" ${S.showEnded ? 'checked' : ''}> Show ${ended} ended</label>` : ''}</div>
+  ${vacant.length ? `<div class="note">Currently without an active agreement: ${vacant.map(v => esc(v.name)).join(', ')}</div><div style="height:12px"></div>` : ''}
+  <div class="grid cols">${list.map(leaseCard).join('') || '<div class="empty">No agreements recorded</div>'}</div>
+  <p class="help" style="margin-top:14px">Green: paid on time. Amber: paid late. Red: overdue. Grey: not yet due. Months are tracked from ${fDate(d.settings.tracking_start)}.</p>`;
+}
+
+function paymentsTable(rows, withTotals = true) {
+  const d = S.data, admin = d.me?.is_admin;
+  if (!rows.length) return '<div class="card empty">No collections recorded yet</div>';
+  const tr = rows.reduce((a, p) => a + +p.rent_amount, 0), tf = rows.reduce((a, p) => a + +p.fine_amount, 0);
+  return `<div class="tablewrap"><table>
+    <thead><tr><th>Received</th><th>Tenant</th><th>For</th><th class="num">Rent</th><th class="num">Fine</th><th>Reference</th>${admin ? '<th></th>' : ''}</tr></thead>
+    <tbody>${rows.map(p => { const l = d.leaseById[p.lease_id]; return `<tr>
+      <td style="white-space:nowrap">${fDate(p.received_on)}</td>
+      <td>${esc(l?.tenant_name)}<div class="small muted">${esc(d.spaceById[l?.space_id]?.name)}</div></td>
+      <td style="white-space:nowrap">${fMonth(C.monthKey(p.period))}</td>
+      <td class="num">${num(p.rent_amount)}</td><td class="num">${+p.fine_amount ? num(p.fine_amount) : '<span class="muted">–</span>'}</td>
+      <td class="small">${esc([p.method, p.reference].filter(Boolean).join(' · '))}${p.note ? `<div class="muted">${esc(p.note)}</div>` : ''}</td>
+      ${admin ? `<td><button class="iconbtn" title="Delete" data-del="payments:${p.id}">✕</button></td>` : ''}</tr>`; }).join('')}</tbody>
+    ${withTotals ? `<tfoot><tr><td colspan="3">Total (MVR)</td><td class="num">${num(tr)}</td><td class="num">${num(tf)}</td><td colspan="${admin ? 2 : 1}"></td></tr></tfoot>` : ''}
+  </table></div>`;
+}
+
+function collections() {
+  const d = S.data;
+  const months = [...new Set(d.payments.map(p => C.monthKey(p.received_on)))].sort().reverse();
+  const f = S.colFilter;
+  const rows = d.payments.filter(p => !f || (f.startsWith('m:') ? C.monthKey(p.received_on) === f.slice(2) : p.lease_id === f.slice(2)));
+  return `<div class="section-head"><h2>Collections</h2>
+    <div class="row"><select class="inline" id="colFilter"><option value="">All collections</option>
+      <optgroup label="By month received">${months.map(m => `<option value="m:${m}" ${f === 'm:' + m ? 'selected' : ''}>${fMonth(m)}</option>`).join('')}</optgroup>
+      <optgroup label="By tenant">${d.leases.map(l => `<option value="l:${l.id}" ${f === 'l:' + l.id ? 'selected' : ''}>${esc(l.tenant_name)} · ${esc(d.spaceById[l.space_id]?.name)}</option>`).join('')}</optgroup>
+    </select><button class="btn ghost small" data-act="csv-collections">Download CSV</button></div></div>
+  ${paymentsTable(rows)}
+  ${d.expenses.length ? `<div class="section-head"><h2>Building expenses</h2></div>
+  <div class="tablewrap"><table><thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th>${d.me?.is_admin ? '<th></th>' : ''}</tr></thead><tbody>
+  ${d.expenses.map(e => `<tr><td>${fDate(e.spent_on)}</td><td>${esc(e.description)}</td><td class="num">${num(e.amount)}</td>${d.me?.is_admin ? `<td><button class="iconbtn" data-del="expenses:${e.id}">✕</button></td>` : ''}</tr>`).join('')}
+  </tbody></table></div><p class="help">Expenses are deducted from that month's collections before shares are worked out.</p>` : ''}`;
+}
+
+function shares() {
+  const d = S.data, wf = d.wf, fixed = wf.fixedIds.map(id => d.memberById[id]), admin = d.me?.is_admin;
+  return `<div class="section-head"><h2>Each member's position</h2></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Member</th><th>Share</th><th class="num">Earned</th><th class="num">Paid out</th><th class="num">Still owed</th></tr></thead>
+    <tbody>${d.sharers.map(m => { const st = d.statements[m.id]; return `<tr${d.me?.id === m.id ? ' style="background:var(--brand-soft)"' : ''}>
+      <td><b>${esc(m.name)}</b><div class="small muted">${esc(m.relation || '')}</div></td>
+      <td class="small">${m.share_type === 'fixed' ? mvr(d.settings.fixed_amount) + ' fixed' : 'Equal 1/' + wf.equalIds.length + ' of balance'}</td>
+      <td class="num">${num(st.entitled)}</td><td class="num">${num(st.paid)}</td>
+      <td class="num">${st.balance > 0 ? `<b>${num(st.balance)}</b>` : num(st.balance)}</td></tr>`; }).join('')}</tbody>
+  </table></div>
+  <p class="help">Earned includes the month in progress, which grows as rent comes in.</p>
+
+  <div class="section-head"><h2>Month by month</h2></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Month</th><th class="num">Rent</th><th class="num">Fines</th><th class="num">Expenses</th><th class="num">To share</th>${fixed.map(m => `<th class="num">${esc(m.name)}</th>`).join('')}<th class="num">Each sibling</th></tr></thead>
+    <tbody>${wf.months.slice().reverse().map(m => `<tr>
+      <td style="white-space:nowrap">${fMonth(m.month)}${m.inProgress ? ' ' + chip('brand', 'in progress') : ''}</td>
+      <td class="num">${num(m.rent)}</td><td class="num">${num(m.fines)}</td><td class="num">${m.expenses ? num(m.expenses) : '–'}</td>
+      <td class="num">${num(m.net)}</td>${fixed.map(f => `<td class="num">${num(m.shares[f.id] || 0)}</td>`).join('')}
+      <td class="num"><b>${num(m.perSibling)}</b></td></tr>`).join('') || '<tr><td colspan="7" class="empty">No months yet</td></tr>'}</tbody>
+  </table></div>
+  <p class="help">${fixed.map(f => esc(f.name)).join(', ')} receives ${mvr(d.settings.fixed_amount)} first each month. If a month collects less, the shortfall is carried into the next month before the siblings share the balance.</p>
+
+  <div class="section-head"><h2>Payouts made</h2>${admin ? '<button class="btn small" data-act="payouts">Record payouts</button>' : ''}</div>
+  ${d.distributions.length ? `<div class="tablewrap"><table>
+    <thead><tr><th>Paid on</th><th>Member</th><th>For month</th><th class="num">Amount</th><th>Reference</th>${admin ? '<th></th>' : ''}</tr></thead>
+    <tbody>${d.distributions.map(x => `<tr><td style="white-space:nowrap">${fDate(x.paid_on)}</td><td>${esc(d.memberById[x.member_id]?.name)}</td><td>${fMonth(C.monthKey(x.for_month))}</td><td class="num">${num(x.amount)}</td>
+      <td class="small">${esc([x.method, x.reference].filter(Boolean).join(' · '))}</td>${admin ? `<td><button class="iconbtn" data-del="distributions:${x.id}">✕</button></td>` : ''}</tr>`).join('')}</tbody>
+  </table></div>` : '<div class="card empty">No payouts recorded yet</div>'}`;
+}
+
+function repState() {
+  const d = S.data, months = d.wf.months.map(m => m.month);
+  const def = d.me && d.me.share_type !== 'none' ? d.me.id : d.sharers[0]?.id;
+  const member = d.memberById[S.rep.repMember] ? S.rep.repMember : def;
+  const from = months.includes(S.rep.repFrom) ? S.rep.repFrom : months[0];
+  const to = months.includes(S.rep.repTo) ? S.rep.repTo : months[months.length - 1];
+  return { months, member: d.memberById[member], from, to };
+}
+
+function reportData() {
+  const d = S.data, { member, from, to } = repState();
+  const st = d.statements[member.id];
+  const rows = st.rows.filter(r => r.month >= from && r.month <= to);
+  const entitled = C.r2(rows.reduce((a, r) => a + r.entitlement, 0)), paid = C.r2(rows.reduce((a, r) => a + r.paid, 0));
+  return { member, from, to, rows, entitled, paid, balance: C.r2(entitled - paid), overall: st };
+}
+
+function report() {
+  const d = S.data;
+  if (!d.sharers.length || !d.wf.months.length) return '<div class="card empty" style="margin-top:20px">Nothing to report yet</div>';
+  const { months } = repState(), r = reportData();
+  return `<div class="section-head"><h2>Income statement</h2>
+    <div class="row"><button class="btn small" data-act="pdf">Download PDF</button><button class="btn ghost small" data-act="csv-report">CSV</button></div></div>
+  <div class="card"><div class="two">
+    <label class="f">Member<select id="repMember">${d.sharers.map(m => `<option value="${m.id}" ${m.id === r.member.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select></label>
+    <div class="two"><label class="f">From<select id="repFrom">${months.map(m => `<option value="${m}" ${m === r.from ? 'selected' : ''}>${fMonth(m)}</option>`).join('')}</select></label>
+    <label class="f">To<select id="repTo">${months.map(m => `<option value="${m}" ${m === r.to ? 'selected' : ''}>${fMonth(m)}</option>`).join('')}</select></label></div>
+  </div></div>
+  <div class="grid kpis">
+    <div class="card kpi"><div class="l">Earned in period</div><div class="v">${mvr(r.entitled)}</div></div>
+    <div class="card kpi good"><div class="l">Paid to you</div><div class="v">${mvr(r.paid)}</div></div>
+    <div class="card kpi"><div class="l">Still owed overall</div><div class="v">${mvr(r.overall.balance)}</div><div class="n">across all months</div></div>
+  </div>
+  <div class="tablewrap" style="margin-top:12px"><table>
+    <thead><tr><th>Month</th><th class="num">Building net</th><th class="num">Your share</th><th class="num">Paid to you</th><th>Paid on</th></tr></thead>
+    <tbody>${r.rows.map(x => `<tr><td style="white-space:nowrap">${fMonth(x.month)}${x.inProgress ? ' ' + chip('brand', 'in progress') : ''}</td><td class="num">${num(x.buildingNet)}</td><td class="num"><b>${num(x.entitlement)}</b></td><td class="num">${num(x.paid)}</td>
+      <td class="small">${x.payouts.map(p => fDate(p.paid_on) + (p.reference ? ' · ' + esc(p.reference) : '')).join('<br>') || '<span class="muted">–</span>'}</td></tr>`).join('')}</tbody>
+    <tfoot><tr><td>Total (MVR)</td><td></td><td class="num">${num(r.entitled)}</td><td class="num">${num(r.paid)}</td><td></td></tr></tfoot>
+  </table></div>`;
+}
+
+function activity() {
+  const d = S.data;
+  const describe = a => {
+    const row = a.new_row || a.old_row || {};
+    const verb = { INSERT: 'added', UPDATE: 'changed', DELETE: 'removed' }[a.action];
+    switch (a.table_name) {
+      case 'payments': return `${verb} a collection of ${mvr(+row.rent_amount + +row.fine_amount)} from ${esc(d.leaseById[row.lease_id]?.tenant_name || 'a tenant')} for ${fMonth(C.monthKey(row.period || ''))}`;
+      case 'distributions': return `${verb} a payout of ${mvr(row.amount)} to ${esc(d.memberById[row.member_id]?.name || 'a member')}`;
+      case 'leases': return `${verb} the agreement for ${esc(row.tenant_name)}`;
+      case 'expenses': return `${verb} an expense: ${esc(row.description)} (${mvr(row.amount)})`;
+      case 'members': return `${verb} member ${esc(row.name)}`;
+      case 'spaces': return `${verb} space ${esc(row.name)}`;
+      default: return `${verb} settings`;
+    }
+  };
+  return `<div class="section-head"><h2>Activity log</h2></div>
+  <p class="muted small" style="margin-top:-6px">Every change to the records is logged here automatically and cannot be edited.</p>
+  <div class="card">${d.audit.length ? d.audit.map(a => `<div class="alert"><div class="small muted" style="min-width:130px">${new Date(a.at).toLocaleString('en-GB', { timeZone: TZ, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</div><div><b>${esc((a.actor || '').split('@')[0])}</b> ${describe(a)}</div></div>`).join('') : '<div class="empty">No activity yet</div>'}</div>`;
+}
+
+function adminView() {
+  const d = S.data, s = d.settings;
+  return `<div class="section-head"><h2>Record</h2></div>
+  <div class="row"><button class="btn" data-act="pay">Rent received</button><button class="btn" data-act="payouts">Payouts to family</button><button class="btn ghost" data-act="expense">Building expense</button></div>
+
+  <div class="section-head"><h2>Agreements</h2><div class="row"><button class="btn ghost small" data-act="space-new">Add space</button><button class="btn small" data-act="lease-new">Add agreement</button></div></div>
+  <div class="card adminlist">${d.leases.map(l => { const st = C.leaseStatus(l, d.today); return `<div class="item"><div><b>${esc(l.tenant_name)}</b> · ${esc(d.spaceById[l.space_id]?.name)}<div class="small muted">${mvr(l.monthly_rent)} · ${fDate(l.start_date)} to ${l.end_date ? fDate(l.end_date) : 'open'}</div></div><div class="row" style="gap:6px">${chip(LSTAT[st.key], st.label)}<button class="btn ghost small" data-edit="leases:${l.id}">Edit</button></div></div>`; }).join('')}</div>
+
+  <div class="section-head"><h2>Family members</h2><button class="btn small" data-act="member-new">Add member</button></div>
+  <div class="card adminlist">${d.members.map(m => `<div class="item"><div><b>${esc(m.name)}</b> ${!m.active ? chip('', 'inactive') : ''}${m.is_admin ? chip('brand', 'admin') : ''}<div class="small muted">${esc(m.email || 'no email yet, cannot sign in')} · ${{ fixed: 'fixed share', equal: 'equal share', none: 'no share' }[m.share_type]}</div></div><button class="btn ghost small" data-edit="members:${m.id}">Edit</button></div>`).join('')}</div>
+
+  <div class="section-head"><h2>Settings</h2><button class="btn ghost small" data-act="settings">Edit</button></div>
+  <div class="card"><table><tbody>
+    <tr><td>Building</td><td>${esc(s.building_name)}</td></tr>
+    <tr><td>Tracking from</td><td>${fDate(s.tracking_start)} <div class="help">Rent due and shares are counted from this date. Move it earlier once past collections are entered.</div></td></tr>
+    <tr><td>Fixed monthly amount</td><td>${mvr(s.fixed_amount)}</td></tr>
+    <tr><td>Daily fine cap</td><td>${num(s.fine_cap_pct)}% of monthly rent per month</td></tr>
+  </tbody></table></div>`;
+}
+
+/* ---------- forms ---------- */
+const opt = (arr, v) => arr.map(([k, l]) => `<option value="${esc(k)}" ${String(k) === String(v ?? '') ? 'selected' : ''}>${esc(l)}</option>`).join('');
+function field(f, v) {
+  if (f.type === 'checkbox') return `<label class="chk"><input type="checkbox" name="${f.name}" ${v ? 'checked' : ''}> ${esc(f.label)}</label>`;
+  let input;
+  if (f.type === 'select') input = `<select name="${f.name}" ${f.required ? 'required' : ''}>${f.blank ? '<option value=""></option>' : ''}${opt(f.options, v)}</select>`;
+  else if (f.type === 'textarea') input = `<textarea name="${f.name}" rows="2">${esc(v)}</textarea>`;
+  else {
+    const val = f.type === 'month' && v ? v.slice(0, 7) : v;
+    input = `<input type="${f.type || 'text'}" name="${f.name}" value="${esc(val ?? '')}" ${f.required ? 'required' : ''} ${f.type === 'number' ? 'step="0.01" min="0" inputmode="decimal"' : ''}>`;
+  }
+  return `<label class="f${f.wide ? '' : ''}">${esc(f.label)}${input}${f.help ? `<div class="help">${esc(f.help)}</div>` : ''}</label>`;
+}
+function readForm(form, fields) {
+  const out = {};
+  for (const f of fields) {
+    const el = form.elements[f.name];
+    if (f.type === 'checkbox') out[f.name] = el.checked;
+    else {
+      let v = el.value.trim();
+      if (v === '') v = null;
+      else if (f.type === 'number') v = +v;
+      else if (f.type === 'month') v = v + '-01';
+      out[f.name] = v;
+    }
+  }
+  return out;
+}
+
+function openForm({ title, fields, values = {}, submit, onDelete, onInput, intro = '' }) {
+  const pairs = [];
+  for (let i = 0; i < fields.length; i++) {
+    const f = fields[i];
+    if (f.half && fields[i + 1]?.half) { pairs.push(`<div class="two">${field(f, values[f.name])}${field(fields[i + 1], values[fields[i + 1].name])}</div>`); i++; }
+    else pairs.push(field(f, values[f.name]));
+  }
+  dlg.innerHTML = `<form method="dialog"><h3>${esc(title)}</h3>${intro}${pairs.join('')}
+    <div class="row between" style="margin-top:8px"><div>${onDelete ? '<button type="button" class="btn danger small" data-x="del">Delete</button>' : ''}</div>
+    <div class="row"><button type="button" class="btn ghost" data-x="cancel">Cancel</button><button class="btn" type="submit">Save</button></div></div></form>`;
+  const form = dlg.querySelector('form');
+  form.querySelector('[data-x=cancel]').onclick = () => dlg.close();
+  if (onDelete) form.querySelector('[data-x=del]').onclick = async () => { if (confirm('Delete this permanently?')) { await onDelete(); dlg.close(); } };
+  if (onInput) { form.oninput = e => onInput(form, e); onInput(form, {}); }
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const btn = form.querySelector('[type=submit]'); btn.disabled = true;
+    try { const ok = await submit(readForm(form, fields), form); if (ok !== false) { dlg.close(); } }
+    finally { btn.disabled = false; }
+  };
+  dlg.showModal();
+}
+
+async function save(table, row, id) {
+  const q = id ? sb.from(table).update(row).eq('id', id) : sb.from(table).insert(row);
+  const { error } = await q;
+  if (error) { toast(error.message); return false; }
+  toast('Saved'); await load(); return true;
+}
+async function del(table, id) {
+  const { error } = await sb.from(table).delete().eq('id', id);
+  if (error) toast(error.message); else { toast('Deleted'); await load(); }
+}
+
+const METHODS = [['Bank transfer', 'Bank transfer'], ['Cash', 'Cash'], ['Cheque', 'Cheque'], ['Other', 'Other']];
+
+function payForm() {
+  const d = S.data, t = d.today;
+  const leases = d.leases.slice().sort((a, b) => {
+    const ka = C.leaseStatus(a, t).key === 'ended', kb = C.leaseStatus(b, t).key === 'ended'; return ka - kb;
+  });
+  // default to the most overdue live lease
+  const owing = leases.find(l => d.sched[l.id].rows.some(r => r.rentOutstanding > 0));
+  const fields = [
+    { name: 'lease_id', label: 'Tenant and space', type: 'select', required: true, options: leases.map(l => [l.id, `${l.tenant_name} · ${d.spaceById[l.space_id]?.name}${C.leaseStatus(l, t).key === 'ended' ? ' (ended)' : ''}`]) },
+    { name: 'period', label: 'Rent month', type: 'month', required: true, half: true },
+    { name: 'received_on', label: 'Date received', type: 'date', required: true, half: true },
+    { name: 'rent_amount', label: 'Rent received (MVR)', type: 'number', required: true, half: true },
+    { name: 'fine_amount', label: 'Late fine received (MVR)', type: 'number', half: true },
+    { name: 'method', label: 'Method', type: 'select', options: METHODS, half: true },
+    { name: 'reference', label: 'Reference', half: true },
+    { name: 'note', label: 'Note', type: 'textarea' }
+  ];
+  const firstOwing = owing && d.sched[owing.id].rows.find(r => r.rentOutstanding > 0);
+  openForm({
+    title: 'Rent received', fields,
+    values: { lease_id: owing?.id, period: (firstOwing?.month || C.monthKey(t)) + '-01', received_on: t, method: 'Bank transfer' },
+    intro: '<p class="help" id="payHint" style="margin:-6px 0 12px"></p>',
+    onInput: (form, e) => {
+      if (e.target && !['lease_id', 'period'].includes(e.target.name) && e.target !== undefined && e.type) return;
+      const E = form.elements, l = d.leaseById[E.lease_id.value], k = E.period.value;
+      const row = d.sched[l.id].rows.find(r => r.month === k);
+      const hint = document.getElementById('payHint');
+      if (row) {
+        E.rent_amount.value = row.rentOutstanding || '';
+        E.fine_amount.value = row.fineOutstanding || '';
+        hint.textContent = `${fMonth(k)}: ${mvr(row.rent)} due, ${mvr(row.rentPaid)} already received. ${STATUS[row.status][1](row)}.` + (row.fineAccrued ? ` Fine to date ${mvr(row.fineAccrued)}.` : '');
+      } else { if (!E.rent_amount.value) E.rent_amount.value = l.monthly_rent; hint.textContent = `Monthly rent ${mvr(l.monthly_rent)}.`; }
+    },
+    submit: v => {
+      if (!v.rent_amount && !v.fine_amount) { toast('Enter a rent or fine amount'); return false; }
+      return save('payments', { ...v, rent_amount: v.rent_amount || 0, fine_amount: v.fine_amount || 0 });
+    }
+  });
+}
+
+function payoutsForm() {
+  const d = S.data, months = d.wf.months.map(m => m.month).reverse();
+  if (!months.length) return toast('No months to pay out yet');
+  const firstOwed = months.slice().reverse().find(k => d.sharers.some(m => { const r = d.statements[m.id].rows.find(x => x.month === k); return r && r.entitlement - r.paid > 0.005; })) || months[0];
+  dlg.innerHTML = `<form><h3>Payouts to family</h3>
+    <label class="f">For collections received in<select name="month">${months.map(k => `<option value="${k}" ${k === firstOwed ? 'selected' : ''}>${fMonth(k)}${d.wf.months.find(m => m.month === k).inProgress ? ' (in progress)' : ''}</option>`).join('')}</select></label>
+    <div id="poRows"></div>
+    <div class="two"><label class="f">Paid on<input type="date" name="paid_on" value="${d.today}" required></label>
+    <label class="f">Method<select name="method">${opt(METHODS, 'Bank transfer')}</select></label></div>
+    <label class="f">Reference<input name="reference" placeholder="optional, applied to every payout"></label>
+    <div class="row between"><span class="small muted" id="poTotal"></span><div class="row"><button type="button" class="btn ghost" data-x="cancel">Cancel</button><button class="btn" type="submit">Save payouts</button></div></div></form>`;
+  const form = dlg.querySelector('form');
+  const fill = () => {
+    const k = form.elements.month.value;
+    form.querySelector('#poRows').innerHTML = `<div class="small muted" style="margin-bottom:6px">Pre-filled with what is still owed for this month. Set 0 to skip someone.</div>` +
+      d.sharers.map(m => { const r = d.statements[m.id].rows.find(x => x.month === k) || { entitlement: 0, paid: 0 }; const owe = C.r2(Math.max(0, r.entitlement - r.paid));
+        return `<label class="f" style="display:grid;grid-template-columns:1fr 140px;align-items:center;gap:10px;margin-bottom:6px"><span>${esc(m.name)}<span class="help" style="display:block">earned ${num(r.entitlement)}, paid ${num(r.paid)}</span></span><input type="number" step="0.01" min="0" data-m="${m.id}" value="${owe || 0}"></label>`; }).join('');
+    total();
+  };
+  const total = () => { const t = [...form.querySelectorAll('[data-m]')].reduce((a, i) => a + (+i.value || 0), 0); form.querySelector('#poTotal').textContent = 'Total ' + mvr(C.r2(t)); };
+  form.elements.month.onchange = fill; form.oninput = e => { if (e.target.dataset.m) total(); };
+  form.querySelector('[data-x=cancel]').onclick = () => dlg.close();
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const rows = [...form.querySelectorAll('[data-m]')].filter(i => +i.value > 0).map(i => ({
+      member_id: i.dataset.m, amount: +i.value, for_month: form.elements.month.value + '-01', paid_on: form.elements.paid_on.value,
+      method: form.elements.method.value, reference: form.elements.reference.value.trim() || null }));
+    if (!rows.length) return toast('No amounts entered');
+    const btn = form.querySelector('[type=submit]'); btn.disabled = true;
+    if (await save('distributions', rows)) dlg.close(); else btn.disabled = false;
+  };
+  fill(); dlg.showModal();
+}
+
+const LEASE_FIELDS = () => [
+  { name: 'space_id', label: 'Space', type: 'select', required: true, options: S.data.spaces.map(s => [s.id, s.name]) },
+  { name: 'tenant_name', label: 'Leased to', required: true, half: true },
+  { name: 'tenant_contact', label: 'Tenant contact', half: true },
+  { name: 'start_date', label: 'Start date', type: 'date', required: true, half: true },
+  { name: 'end_date', label: 'End date', type: 'date', half: true, help: 'Leave blank if not confirmed' },
+  { name: 'monthly_rent', label: 'Monthly rent (MVR)', type: 'number', required: true, half: true },
+  { name: 'agreement_ref', label: 'Agreement reference', half: true },
+  { name: 'due_day', label: 'Rent due on day', type: 'number', required: true, half: true, help: '1 to 28' },
+  { name: 'grace_days', label: 'Grace days', type: 'number', half: true },
+  { name: 'fine_type', label: 'Late fine type', type: 'select', options: [['none', 'No fine'], ['daily', 'Per day late'], ['percent', '% of monthly rent'], ['flat', 'Flat amount']], half: true },
+  { name: 'fine_value', label: 'Fine amount or %', type: 'number', half: true },
+  { name: 'notes', label: 'Notes', type: 'textarea' }
+];
+const MEMBER_FIELDS = [
+  { name: 'name', label: 'Name', required: true, half: true }, { name: 'relation', label: 'Relation', half: true },
+  { name: 'email', label: 'Email (used to sign in)', type: 'email' },
+  { name: 'share_type', label: 'Share', type: 'select', options: [['equal', 'Equal share of balance'], ['fixed', 'Fixed monthly amount, paid first'], ['none', 'No share (viewer only)']], half: true },
+  { name: 'sort', label: 'Display order', type: 'number', half: true },
+  { name: 'is_admin', label: 'Can record and edit (admin)', type: 'checkbox' },
+  { name: 'active', label: 'Active', type: 'checkbox' }
+];
+
+function editRecord(table, id) {
+  const d = S.data;
+  if (table === 'leases') {
+    const l = d.leaseById[id];
+    openForm({ title: 'Edit agreement', fields: LEASE_FIELDS(), values: l,
+      submit: v => save('leases', { ...v, grace_days: v.grace_days || 0, fine_value: v.fine_value || 0 }, id),
+      onDelete: d.payments.some(p => p.lease_id === id) ? null : () => del('leases', id) });
+  } else if (table === 'members') {
+    const m = d.memberById[id];
+    openForm({ title: 'Edit member', fields: MEMBER_FIELDS, values: m,
+      submit: v => {
+        if (m.id === d.me?.id && (!v.is_admin || !v.active)) { toast('You cannot remove your own admin access'); return false; }
+        return save('members', { ...v, email: v.email ? v.email.toLowerCase() : null, sort: v.sort ?? 100 }, id);
+      } });
+  }
+}
+
+/* ---------- exports ---------- */
+function download(name, text, type = 'text/csv') {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+const csv = rows => rows.map(r => r.map(c => { const s = String(c ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(',')).join('\n');
+
+function csvCollections() {
+  const d = S.data;
+  download('gajuraage-collections.csv', csv([['Received', 'Tenant', 'Space', 'Rent month', 'Rent (MVR)', 'Fine (MVR)', 'Method', 'Reference', 'Note'],
+    ...d.payments.map(p => { const l = d.leaseById[p.lease_id]; return [p.received_on, l?.tenant_name, d.spaceById[l?.space_id]?.name, C.monthKey(p.period), p.rent_amount, p.fine_amount, p.method, p.reference, p.note]; })]));
+}
+function csvReport() {
+  const r = reportData();
+  download(`gajuraage-${r.member.name.replace(/\W+/g, '-').toLowerCase()}-${r.from}-to-${r.to}.csv`, csv([['Month', 'Building net (MVR)', 'Share (MVR)', 'Paid (MVR)', 'Paid on'],
+    ...r.rows.map(x => [x.month, x.buildingNet, x.entitlement, x.paid, x.payouts.map(p => p.paid_on).join(' ')]), ['Total', '', r.entitled, r.paid, '']]));
+}
+function pdfReport() {
+  const d = S.data, r = reportData();
+  const { jsPDF } = window.jspdf; const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  doc.setFillColor(15, 92, 92); doc.rect(0, 0, W, 78, 'F');
+  doc.setTextColor(246, 241, 231); doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text('Gajuraage rental income statement', 40, 40);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.text(d.settings.building_name.replace('é', 'e'), 40, 58);
+  doc.setTextColor(29, 42, 46); doc.setFontSize(11);
+  const lines = [['Member', r.member.name], ['Share', r.member.share_type === 'fixed' ? `Fixed MVR ${num(d.settings.fixed_amount)} a month, paid first` : `Equal 1/${d.wf.equalIds.length} of balance after fixed amount`],
+    ['Period', `${fMonth(r.from)} to ${fMonth(r.to)}`], ['Generated', `${fDate(d.today)} by ${S.session.user.email}`]];
+  let y = 108; lines.forEach(([k, v]) => { doc.setTextColor(93, 107, 110); doc.text(k, 40, y); doc.setTextColor(29, 42, 46); doc.text(v, 130, y); y += 17; });
+  y += 6;
+  [['Earned in period', r.entitled], ['Paid to member', r.paid], ['Still owed overall', r.overall.balance]].forEach(([k, v], i) => {
+    const x = 40 + i * ((W - 80) / 3);
+    doc.setFontSize(9); doc.setTextColor(93, 107, 110); doc.text(k.toUpperCase(), x, y);
+    doc.setFontSize(15); doc.setTextColor(29, 42, 46); doc.setFont('helvetica', 'bold'); doc.text('MVR ' + num(v), x, y + 19); doc.setFont('helvetica', 'normal');
+  });
+  doc.autoTable({
+    startY: y + 38, margin: { left: 40, right: 40 },
+    head: [['Month', 'Building net', 'Share', 'Paid', 'Paid on / reference']],
+    body: r.rows.map(x => [fMonth(x.month) + (x.inProgress ? ' (in progress)' : ''), num(x.buildingNet), num(x.entitlement), num(x.paid), x.payouts.map(p => fDate(p.paid_on) + (p.reference ? ' · ' + p.reference : '')).join('\n') || '-']),
+    foot: [['Total (MVR)', '', num(r.entitled), num(r.paid), '']],
+    headStyles: { fillColor: [15, 92, 92] }, footStyles: { fillColor: [239, 232, 218], textColor: [29, 42, 46] },
+    styles: { fontSize: 9.5, cellPadding: 6 }, columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } }
+  });
+  const fy = doc.lastAutoTable.finalY + 24;
+  doc.setFontSize(8.5); doc.setTextColor(93, 107, 110);
+  doc.text(doc.splitTextToSize('Shares are calculated on rent and fines actually received in each month, less building expenses. The fixed monthly amount is paid first; the balance is divided equally between the siblings. A month marked in progress may still change as rent is received.', W - 80), 40, fy);
+  doc.save(`gajuraage-${r.member.name.replace(/\W+/g, '-').toLowerCase()}-${r.from}-to-${r.to}.pdf`);
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-tab],[data-act],[data-del],[data-edit]');
+  if (!t) return;
+  if (t.dataset.tab) { S.tab = t.dataset.tab; window.scrollTo(0, 0); return render(); }
+  if (t.dataset.del) { const [tb, id] = t.dataset.del.split(':'); if (confirm('Delete this entry permanently? It will still appear in the activity log.')) del(tb, id); return; }
+  if (t.dataset.edit) { const [tb, id] = t.dataset.edit.split(':'); return editRecord(tb, id); }
+  const d = S.data;
+  switch (t.dataset.act) {
+    case 'signout': S.channel && sb.removeChannel(S.channel); S.channel = null; sb.auth.signOut(); break;
+    case 'login-again': renderLogin(); break;
+    case 'pay': payForm(); break;
+    case 'payouts': payoutsForm(); break;
+    case 'expense': openForm({ title: 'Building expense', fields: [
+      { name: 'spent_on', label: 'Date', type: 'date', required: true, half: true }, { name: 'amount', label: 'Amount (MVR)', type: 'number', required: true, half: true },
+      { name: 'description', label: 'Description', required: true }], values: { spent_on: d.today },
+      intro: '<p class="help" style="margin:-6px 0 12px">Deducted from that month\'s collections before shares are worked out.</p>',
+      submit: v => save('expenses', v) }); break;
+    case 'lease-new': openForm({ title: 'Add agreement', fields: LEASE_FIELDS(), values: { due_day: 10, grace_days: 0, fine_type: 'none', start_date: d.today },
+      submit: v => save('leases', { ...v, grace_days: v.grace_days || 0, fine_value: v.fine_value || 0 }) }); break;
+    case 'space-new': openForm({ title: 'Add space', fields: [{ name: 'name', label: 'Name', required: true }, { name: 'description', label: 'Description' }, { name: 'sort', label: 'Display order', type: 'number' }],
+      submit: v => save('spaces', { ...v, sort: v.sort ?? 100 }) }); break;
+    case 'member-new': openForm({ title: 'Add member', fields: MEMBER_FIELDS, values: { share_type: 'equal', active: true, sort: 20 },
+      submit: v => save('members', { ...v, email: v.email ? v.email.toLowerCase() : null, sort: v.sort ?? 100 }) }); break;
+    case 'settings': openForm({ title: 'Settings', fields: [
+      { name: 'building_name', label: 'Building name', required: true },
+      { name: 'tracking_start', label: 'Track rent from', type: 'date', required: true, help: 'Months before this are ignored for arrears and shares' },
+      { name: 'fixed_amount', label: 'Fixed monthly amount (MVR)', type: 'number', required: true, half: true },
+      { name: 'fine_cap_pct', label: 'Daily fine cap (% of rent)', type: 'number', required: true, half: true }],
+      values: d.settings, submit: v => save('settings', { ...v, updated_at: new Date().toISOString() }, 1) }); break;
+    case 'csv-collections': csvCollections(); break;
+    case 'csv-report': csvReport(); break;
+    case 'pdf': pdfReport(); break;
+  }
+});
+
+init();
+</script>
+</body>
+</html>
