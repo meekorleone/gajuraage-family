@@ -223,7 +223,7 @@ const STATUS = {
 const LSTAT = { active: 'good', expiring: 'warn', ended: '', upcoming: 'gold' };
 const RECORD = { clean: 'good', late: 'warn', arrears: 'bad', none: '' };
 const INVSTAT = { sent: 'good', failed: 'bad', pending: 'warn' };
-const KIND = { rent: 'Rent invoice', fine: 'Fine invoice', reminder: 'Reminder' };
+const KIND = { rent: 'Rent invoice', fine: 'Fine invoice', reminder: 'Reminder', receipt: 'Payment receipt', statement: 'Ageing statement' };
 const DEPKIND = { security_in: 'Security deposit received', security_refund: 'Security deposit refunded', security_retained: 'Security deposit kept', advance_in: 'Advance rent received', advance_refund: 'Advance rent refunded' };
 const chip = (cls, text) => `<span class="chip ${cls}">${esc(text)}</span>`;
 
@@ -468,7 +468,7 @@ function paymentsTable(rows, withTotals = true) {
       <td style="white-space:nowrap">${fMonth(C.monthKey(p.period))}${p.source === 'advance' ? '<br>' + chip('gold', 'from advance') : ''}</td>
       <td class="num">${num(p.rent_amount)}</td><td class="num">${+p.fine_amount ? num(p.fine_amount) : '<span class="faint">–</span>'}</td>
       <td class="small">${esc([p.method, p.reference].filter(Boolean).join(' · '))}${p.note ? `<div class="faint">${esc(p.note)}</div>` : ''}${(() => { const rc = d.receiptsOf(p.lease_id, C.monthKey(p.period)); return rc.length ? `<div class="docs" style="margin-top:4px">${rc.map(a => docChip(a, false)).join('')}</div>` : ''; })()}</td>
-      ${admin ? `<td><button class="iconbtn" title="Delete" data-del="payments:${p.id}">✕</button></td>` : ''}</tr>`; }).join('')}</tbody>
+      ${admin ? `<td style="white-space:nowrap">${l?.tenant_email ? `<button class="linkbtn" data-receipt="${p.id}" title="Email a paid receipt">${d.invoices.some(i => i.payment_id === p.id && i.status === 'sent') ? 'Resend receipt' : 'Email receipt'}</button> ` : ''}<button class="iconbtn" title="Delete" data-del="payments:${p.id}">✕</button></td>` : ''}</tr>`; }).join('')}</tbody>
     ${withTotals ? `<tfoot><tr><td colspan="3">Total (MVR)</td><td class="num">${num(tr)}</td><td class="num">${num(tf)}</td><td colspan="${admin ? 2 : 1}"></td></tr></tfoot>` : ''}
   </table></div>`;
 }
@@ -506,7 +506,7 @@ function invoicesView() {
   const d = S.data, admin = d.me?.is_admin, s = d.settings;
   return `<div class="section-head"><div><div class="eyebrow">${s.emails_enabled ? 'Automatic emails on' : 'Automatic emails off'}</div><h2>Invoices and reminders</h2></div>
     ${admin ? `<div class="row"><button class="btn ghost small" data-act="test-email">Send test email</button><button class="btn small" data-act="run-billing">Run today's billing now</button></div>` : ''}</div>
-  <div class="card small muted" style="margin-bottom:14px">Rent invoices go to each tenant on the ${ord(+s.invoice_day)} of the month with the due date. If anything is overdue, a reminder with rent and fines goes the day after the due date, then every ${s.reminder_interval_days} days until settled. Runs daily at 8am.${!s.emails_enabled && admin ? ' <b style="color:var(--warn)">Switch on in Admin, Settings when ready.</b>' : ''}</div>
+  <div class="card small muted" style="margin-bottom:14px">Every email carries a PDF. Automatic: rent invoice on the ${ord(+s.invoice_day)} of the month; if anything is overdue, a reminder with a statement the day after the due date, then every ${s.reminder_interval_days} days until settled (checked daily at 8am). On recording a payment: a paid receipt, if ticked. On request, from a lease's Statement: fine invoices and ageing statements.${!s.emails_enabled && admin ? ' <b style="color:var(--warn)">Switch on in Admin, Settings when ready.</b>' : ''}</div>
   ${d.invoices.length ? `<div class="tablewrap"><table>
     <thead><tr><th>Number</th><th>Issued</th><th>Tenant</th><th>Type</th><th class="num">Total</th><th>Status</th></tr></thead>
     <tbody>${d.invoices.map(i => `<tr>
@@ -659,7 +659,7 @@ function statement(id) {
       <div class="card"><div class="small faint">Security held</div><div>${mvr(dp.securityHeld)}</div></div>
       <div class="card"><div class="small faint">Advance left</div><div>${mvr(dp.advanceBalance)}</div></div>
     </div>
-    ${canEmail ? `<div class="row" style="margin-bottom:14px"><button class="btn small" data-bill="send:rent:${id}:${C.monthKey(d.today)}">Email ${fMonth(C.monthKey(d.today))} invoice</button>${sc.summary.arrears || sc.summary.finesOutstanding ? `<button class="btn small" data-bill="send:reminder:${id}:">Email reminder</button>` : ''}<button class="btn ghost small" data-bill="preview:rent:${id}:${C.monthKey(d.today)}">Preview invoice</button>${sc.summary.arrears || sc.summary.finesOutstanding ? `<button class="btn ghost small" data-bill="preview:reminder:${id}:">Preview reminder</button>` : ''}</div>` : admin ? '<p class="note" style="margin-top:0">Add the tenant\'s email (Edit agreement) to send invoices.</p>' : ''}
+    ${canEmail ? `<div class="row" style="margin-bottom:14px"><button class="btn small" data-bill="send:rent:${id}:${C.monthKey(d.today)}">Email ${fMonth(C.monthKey(d.today))} invoice</button>${sc.summary.arrears || sc.summary.finesOutstanding ? `<button class="btn small" data-bill="send:reminder:${id}:">Email reminder</button>` : ''}<button class="btn small" data-bill="send:statement:${id}:">Email ageing statement</button><button class="btn ghost small" data-bill="preview:rent:${id}:${C.monthKey(d.today)}">Preview invoice</button>${sc.summary.arrears || sc.summary.finesOutstanding ? `<button class="btn ghost small" data-bill="preview:reminder:${id}:">Preview reminder</button>` : ''}<button class="btn ghost small" data-bill="preview:statement:${id}:">Preview ageing statement</button></div>` : admin ? '<p class="note" style="margin-top:0">Add the tenant\'s email (Edit agreement) to send invoices.</p>' : ''}
     <div class="tablewrap"><table>
       <thead><tr><th>Month</th><th class="num">Rent paid</th><th class="num">Fine</th><th class="num">Waived</th><th class="num">Fine paid</th><th class="num">Owed</th><th>Status</th><th>Receipts</th>${admin ? '<th></th>' : ''}</tr></thead>
       <tbody>${rows.map(r => `<tr>
@@ -771,18 +771,20 @@ function payForm(preLease, preMonth, preSource) {
     { name: 'method', label: 'Method', type: 'select', options: METHODS, half: true },
     { name: 'reference', label: 'Reference', half: true },
     { name: 'note', label: 'Note', type: 'textarea' },
-    { name: 'receipt', label: 'Receipt (optional: PDF or photo, up to 10 MB)', type: 'file', accept: 'application/pdf,image/*' }
+    { name: 'receipt', label: 'Bank slip or receipt (optional: PDF or photo, up to 10 MB)', type: 'file', accept: 'application/pdf,image/*' },
+    { name: 'email_receipt', label: 'Email a paid receipt (PDF) to the tenant', type: 'checkbox' }
   ];
   let fineTouched = false;
   openForm({
     title: preSource === 'advance' ? 'Use advance for rent' : 'Rent received', fields,
-    values: { lease_id: owing?.id, source: preSource || 'tenant', period: (firstOwing?.month || C.monthKey(t)) + '-01', received_on: t, method: preSource === 'advance' ? 'Other' : 'Bank transfer' },
+    values: { lease_id: owing?.id, source: preSource || 'tenant', period: (firstOwing?.month || C.monthKey(t)) + '-01', received_on: t, method: preSource === 'advance' ? 'Other' : 'Bank transfer', email_receipt: !!owing?.tenant_email },
     intro: '<div class="card small" id="payHint" style="margin:-4px 0 14px;padding:12px 14px"></div>',
     onInput: (form, e) => {
       const E = form.elements, name = e.target?.name;
       if (name === 'fine_amount') { fineTouched = true; return; }
       if (name && !['lease_id', 'period', 'received_on', 'rent_amount', 'source'].includes(name)) return;
       const l = d.leaseById[E.lease_id.value], k = E.period.value, dp = d.dep[l.id];
+      if (name === 'lease_id') E.email_receipt.checked = !!l.tenant_email;
       const row = d.sched[l.id].rows.find(r => r.month === k);
       const hint = document.getElementById('payHint');
       const adv = E.source.value === 'advance' ? ` Advance left: <b>${mvr(dp.advanceBalance)}</b>.` : '';
@@ -805,12 +807,17 @@ function payForm(preLease, preMonth, preSource) {
         const bal = d.dep[v.lease_id].advanceBalance;
         if ((v.rent_amount || 0) + (v.fine_amount || 0) > bal + 0.005) { toast(`Only ${mvr(bal)} of advance is left for this tenant`); return false; }
       }
-      const { receipt, ...row } = v;
+      const { receipt, email_receipt, ...row } = v;
+      if (email_receipt && !d.leaseById[row.lease_id].tenant_email) { toast('This tenant has no email. Untick "Email a paid receipt" or add the email to the agreement.', 6000); return false; }
+      if (email_receipt && C.daysBetween(row.received_on, t) > 14 && !confirm('This payment is more than two weeks old. Email the tenant a receipt for it anyway?')) return false;
       if (receipt) {
         try { await uploadDoc(receipt, { kind: 'receipt', lease_id: row.lease_id, period: row.period, label: row.reference || null }); }
-        catch (e) { toast('Receipt not attached: ' + e.message, 6000); return false; }
+        catch (e) { toast('Slip not attached: ' + e.message, 6000); return false; }
       }
-      return save('payments', { ...row, rent_amount: row.rent_amount || 0, fine_amount: row.fine_amount || 0 });
+      const { data: saved, error } = await sb.from('payments').insert({ ...row, rent_amount: row.rent_amount || 0, fine_amount: row.fine_amount || 0 }).select().single();
+      if (error) { toast(error.message); return false; }
+      toast('Payment saved'); await load();
+      if (email_receipt) await sendReceipt(saved.id, true);
     }
   });
 }
@@ -938,6 +945,21 @@ function setPasswordForm(id) {
 }
 async function fnError(error) { try { return (await error.context.json()).error || error.message; } catch (_) { return error.message; } }
 
+function openPdfB64(b64, name) {
+  const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  const url = URL.createObjectURL(new Blob([u], { type: 'application/pdf' }));
+  const w = window.open(url, '_blank');
+  if (!w) { const a = document.createElement('a'); a.href = url; a.download = name; a.click(); }
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+async function sendReceipt(paymentId, silent) {
+  const p = S.data.payments.find(x => x.id === paymentId), l = p && S.data.leaseById[p.lease_id];
+  if (!l?.tenant_email) { toast('Add the tenant\'s email to the agreement to send receipts'); return; }
+  if (!silent && !confirm(`Email a receipt for ${mvr(+p.rent_amount + +p.fine_amount)} to ${l.tenant_email}?`)) return;
+  const { data, error } = await sb.functions.invoke('billing', { body: { mode: 'send', kind: 'receipt', lease_id: l.id, payment_id: paymentId } });
+  if (error) { toast('Receipt not sent: ' + await fnError(error), 6000); return; }
+  toast(`Receipt ${data.number} emailed to ${l.tenant_name}`, 4500); load();
+}
 async function billing(action, kind, leaseId, month) {
   const body = { mode: action, kind, lease_id: leaseId, period: month || undefined };
   if (action === 'send' && !confirm(`Email this ${KIND[kind].toLowerCase()} to ${S.data.leaseById[leaseId].tenant_email} now?`)) return;
@@ -946,12 +968,14 @@ async function billing(action, kind, leaseId, month) {
   if (error) { toast(await fnError(error), 6000); await load(); if (S.lastStatement) statement(S.lastStatement); return; }
   if (action === 'preview') {
     dlg.className = 'wide';
-    dlg.innerHTML = `<div class="inner"><div class="row between"><h3 style="margin:0">Preview</h3><button class="iconbtn" data-x="back" style="font-size:1.2rem">✕</button></div><p class="small faint">${esc(data.subject)}</p><iframe sandbox="" title="Invoice preview"></iframe></div>`;
+    dlg.innerHTML = `<div class="inner"><div class="dhead"><div><div class="eyebrow">Preview, not sent</div><h3 style="margin:0 0 4px">${esc(KIND[kind])}</h3><p class="small faint" style="margin:0">${esc(data.subject)}</p></div><button class="iconbtn" data-x="back" style="font-size:1.2rem;flex:none">✕</button></div>
+      <div class="row" style="margin:12px 0"><button class="btn small" data-x="pdf">Open attached PDF</button><span class="small faint">${esc(data.filename)}</span></div><iframe sandbox="" title="Email preview"></iframe></div>`;
     dlg.querySelector('iframe').srcdoc = data.html;
+    dlg.querySelector('[data-x=pdf]').onclick = () => openPdfB64(data.pdf, data.filename);
     dlg.querySelector('[data-x=back]').onclick = () => statement(leaseId);
     return;
   }
-  toast(`${data.number} sent to ${S.data.leaseById[leaseId].tenant_name}`, 4500);
+  toast(`${KIND[kind]} ${data.number} emailed to ${S.data.leaseById[leaseId].tenant_name}`, 4500);
   await load(); statement(leaseId);
 }
 
@@ -1076,11 +1100,12 @@ function pdfReport() {
 
 /* ---------- events ---------- */
 document.addEventListener('click', async e => {
-  const t = e.target.closest('[data-tab],[data-act],[data-del],[data-edit],[data-setpw],[data-statement],[data-pay],[data-waive],[data-bill],[data-deposit-for],[data-doc],[data-deldoc],[data-attach]');
+  const t = e.target.closest('[data-tab],[data-act],[data-del],[data-edit],[data-setpw],[data-statement],[data-pay],[data-waive],[data-bill],[data-deposit-for],[data-doc],[data-deldoc],[data-attach],[data-receipt]');
   if (!t) return;
   const ds = t.dataset, d = S.data;
   if (ds.tab) { S.tab = ds.tab; window.scrollTo(0, 0); return render(); }
   if (ds.statement) { S.lastStatement = ds.statement; return statement(ds.statement); }
+  if (ds.receipt) return sendReceipt(ds.receipt);
   if (ds.doc) return openDoc(ds.doc);
   if (ds.deldoc) return deleteDoc(ds.deldoc);
   if (ds.attach) { const [k, id, m] = ds.attach.split(':'); returnTo = dlg.open && dlg.className === 'wide' ? id : null; return attachForm(k, id, m); }
