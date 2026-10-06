@@ -255,15 +255,16 @@ async function load() {
     sb.from('settings').select('*').maybeSingle(), q('members', 'sort'), q('spaces', 'sort'), q('leases', 'start_date'),
     q('payments', 'received_on', false), q('expenses', 'spent_on', false), q('distributions', 'paid_on', false),
     sb.from('audit_log').select('*').order('at', { ascending: false }).limit(150),
-    q('deposits', 'occurred_on', false), q('fine_waivers', 'created_at', false), q('invoices', 'created_at', false), q('attachments', 'created_at', false)
+    q('deposits', 'occurred_on', false), q('fine_waivers', 'created_at', false), q('invoices', 'created_at', false), q('attachments', 'created_at', false), q('access_requests', 'created_at', false), q('rent_steps', 'effective_from')
   ]);
-  const err = res.find(r => r.error);
+  const err = res.slice(0, 12).find(r => r.error);
   if (err) { app.innerHTML = `<div class="empty">Could not load data: ${esc(err.error.message)}</div>`; return; }
-  const [settings, members, spaces, leases, payments, expenses, distributions, audit, deposits, waivers, invoices, attachments] = res.map(r => r.data);
-  if (!settings) return renderNotMember();
+  const [settings, members, spaces, leases, payments, expenses, distributions, audit, deposits, waivers, invoices, attachments, requests, steps] = res.map(r => r.data || []);
+  for (const l of leases) l.rent_steps = steps.filter(x => x.lease_id === l.id);
+  if (!settings || (Array.isArray(settings) && !settings.length)) return renderNotMember();
   const email = S.session.user.email.toLowerCase();
   const me = members.find(m => (m.email || '').toLowerCase() === email);
-  S.data = { settings, members, spaces, leases, payments, expenses, distributions, audit, deposits, waivers, invoices, attachments, me };
+  S.data = { settings, members, spaces, leases, payments, expenses, distributions, audit, deposits, waivers, invoices, attachments, requests, steps, me };
   compute(); render(); subscribe();
 }
 
@@ -283,6 +284,7 @@ function compute() {
   d.sharers = d.members.filter(m => m.active && m.share_type !== 'none');
   d.statements = Object.fromEntries(d.sharers.map(m => [m.id, C.memberStatement(m, d.wf, d.distributions)]));
   d.liveLeases = d.leases.filter(l => ['active', 'expiring'].includes(C.leaseStatus(l, t).key));
+  d.curRent = l => C.rentFor(l, C.monthKey(t > l.start_date ? t : l.start_date));
   d.leaseName = l => l ? `${l.tenant_name} · ${d.spaceById[l.space_id]?.name || ''}` : '';
   d.attById = Object.fromEntries(d.attachments.map(a => [a.id, a]));
   d.agreementsOf = id => d.attachments.filter(a => a.kind === 'agreement' && a.lease_id === id);
@@ -306,8 +308,9 @@ function renderLogin() {
       <label class="f">Email<input type="email" name="email" required autocomplete="username" placeholder="name@example.com"></label>
       <label class="f">Password<input type="password" name="password" required autocomplete="current-password"></label>
       <button class="btn" type="submit" style="width:100%;margin-top:4px">Sign in</button>
-      <p class="help" style="margin-top:14px;text-align:center">Forgotten your password or don't have one yet? Ask Meekail to set it for you.</p>
-    </form></div></div>`;
+      <p class="help" style="margin-top:14px;text-align:center">Forgotten your password? Ask the custodian to reset it.</p>
+    </form></div>
+    ${GAJ_CONFIG.accessRequests ? '<p style="margin-top:18px" class="small muted">Family member without access? <button class="linkbtn" data-act="request-access">Request view access</button></p>' : ''}</div>`;
   const f = document.getElementById('loginForm');
   f.onsubmit = async e => {
     e.preventDefault();
@@ -316,12 +319,65 @@ function renderLogin() {
     if (error) { toast(error.message === 'Invalid login credentials' ? 'Email or password is incorrect' : error.message); btn.disabled = false; }
   };
 }
-function renderNotMember() {
+async function renderNotMember() {
+  let status = null;
+  try { const r = await sb.rpc('my_access_status'); status = r.data; } catch (_) {}
+  const msg = status === 'pending' ? ['Awaiting approval', 'Your email is verified and your request is with the custodian. You will receive an email once it is approved.']
+    : status === 'declined' ? ['Request not approved', 'Your request was not approved. Please contact the custodian if you think this is a mistake.']
+    : ['Not on the list yet', "This email isn't on the Gajuraage family list. Sign out and use Request access, or ask the custodian to add you."];
   app.innerHTML = `<div class="login view"><div class="crest">${CREST(40)}</div><div class="card">
-    <h2>Not on the list yet</h2>
-    <p>You're signed in as <b>${esc(S.session.user.email)}</b>, but this email isn't on the Gajuraage family list.</p>
-    <p class="muted">Ask Meekail to add it, then refresh this page.</p>
-    <button class="btn ghost" data-act="signout">Sign out</button></div></div>`;
+    <h2>${msg[0]}</h2>
+    <p class="muted">Signed in as <b style="color:var(--ink)">${esc(S.session.user.email)}</b></p>
+    <p>${msg[1]}</p>
+    <div class="row"><button class="btn ghost" data-act="signout">Sign out</button><button class="btn ghost" onclick="location.reload()">Refresh</button></div></div></div>`;
+}
+
+/* ---------- request access (public) ---------- */
+function renderRequest(step = 1, ctx = {}) {
+  const card = step === 1 ? `
+    <h2 style="margin-bottom:4px">Request view access</h2>
+    <p class="muted small" style="margin-top:0">For family members of Ma. Gajuraage. We'll email you a code to confirm your address; the custodian then approves your request.</p>
+    <form id="reqForm">
+      <label class="f">Full name<input name="name" required autocomplete="name" value="${esc(ctx.name || '')}"></label>
+      <label class="f">Email<input type="email" name="email" required autocomplete="email" value="${esc(ctx.email || '')}"></label>
+      <label class="f">Relation to the family<input name="relation" placeholder="e.g. son of Ahmed Jaleel" value="${esc(ctx.relation || '')}"></label>
+      <label class="f">Note for the custodian (optional)<textarea name="note" rows="2">${esc(ctx.note || '')}</textarea></label>
+      <button class="btn" type="submit" style="width:100%">Email me a code</button>
+    </form>`
+  : step === 2 ? `
+    <h2 style="margin-bottom:4px">Check your email</h2>
+    <p class="muted small" style="margin-top:0">We sent a 6-digit code to <b style="color:var(--ink)">${esc(ctx.email)}</b>. It expires in 15 minutes. Check spam if you don't see it.</p>
+    <form id="reqForm">
+      <label class="f">Verification code<input name="code" required inputmode="numeric" autocomplete="one-time-code" maxlength="6" style="letter-spacing:.4em;font-size:1.3rem;text-align:center"></label>
+      <label class="f">Choose a password<input type="password" name="p1" required autocomplete="new-password"><div class="help">At least 8 characters. You'll use it to sign in once approved.</div></label>
+      <label class="f">Repeat password<input type="password" name="p2" required autocomplete="new-password"></label>
+      <button class="btn" type="submit" style="width:100%">Verify and send request</button>
+    </form>`
+  : `
+    <h2 style="margin-bottom:4px">Request sent</h2>
+    <p>Thank you, your email is verified. The custodian has been notified and will review your request.</p>
+    <p class="muted small">You'll receive an email when it's approved. You can then sign in with ${esc(ctx.email)} and the password you chose.</p>`;
+  app.innerHTML = `<div class="login view"><div class="crest">${CREST(40)}</div><div class="wordmark">GAJURAAGE</div>
+    <div class="card" style="margin-top:22px">${card}</div>
+    <p style="margin-top:16px"><button class="linkbtn" data-act="to-login">Back to sign in</button></p></div>`;
+  const f = document.getElementById('reqForm'); if (!f) return;
+  f.onsubmit = async e => {
+    e.preventDefault();
+    const btn = f.querySelector('button'); btn.disabled = true;
+    const E = f.elements;
+    if (step === 1) {
+      const v = { name: E.name.value.trim(), email: E.email.value.trim().toLowerCase(), relation: E.relation.value.trim(), note: E.note.value.trim() };
+      const { data, error } = await sb.functions.invoke('access', { body: { mode: 'request', ...v } });
+      if (error) { toast(await fnError(error), 7000); btn.disabled = false; return; }
+      renderRequest(2, { ...v, request_id: data.request_id });
+    } else {
+      if (E.p1.value.length < 8) { toast('Use at least 8 characters'); btn.disabled = false; return; }
+      if (E.p1.value !== E.p2.value) { toast('The passwords do not match'); btn.disabled = false; return; }
+      const { error } = await sb.functions.invoke('access', { body: { mode: 'verify', request_id: ctx.request_id, code: E.code.value, password: E.p1.value } });
+      if (error) { toast(await fnError(error), 7000); btn.disabled = false; return; }
+      renderRequest(3, ctx);
+    }
+  };
 }
 
 /* ---------- layout ---------- */
@@ -363,7 +419,7 @@ function overview() {
   const d = S.data, wf = d.wf, s = d.settings;
   const cur = wf.months[wf.months.length - 1] || { rent: 0, fines: 0, month: C.monthKey(d.today) };
   const collected = wf.months.reduce((a, m) => a + m.rent + m.fines, 0);
-  const rentRoll = d.liveLeases.reduce((a, l) => a + +l.monthly_rent, 0);
+  const rentRoll = d.liveLeases.reduce((a, l) => a + d.curRent(l), 0);
   const sums = Object.values(d.sched).map(x => x.summary);
   const arrears = sums.reduce((a, x) => a + x.arrears, 0);
   const fines = sums.reduce((a, x) => a + x.finesOutstanding, 0);
@@ -381,9 +437,13 @@ function overview() {
     if (sc.summary.arrears > 0) alerts.push(['bad', 'Arrears', `${name}: ${mvr(sc.summary.arrears)} overdue across ${sc.summary.overdueMonths} month(s)`]);
     if (sc.summary.finesOutstanding > 0) alerts.push(['warn', 'Fine', `${name}: ${mvr(sc.summary.finesOutstanding)} in late fines not yet collected`]);
     if (st.key === 'expiring') alerts.push(['warn', 'Expiring', `${name}: agreement ends ${fDate(l.end_date)} (${C.daysBetween(d.today, l.end_date)} days)`]);
-    if (st.key === 'upcoming') alerts.push(['gold', 'Starting', `${name}: starts ${fDate(l.start_date)} at ${mvr(l.monthly_rent)}`]);
+    if (st.key === 'upcoming') alerts.push(['gold', 'Starting', `${name}: starts ${fDate(l.start_date)} at ${mvr(d.curRent(l))}`]);
+    const ns = C.nextStep(l, C.monthKey(d.today));
+    if (ns && ['active', 'expiring', 'upcoming'].includes(st.key) && C.daysBetween(d.today, ns.effective_from) <= 60) alerts.push(['gold', 'Rent change', `${name}: rent changes to ${mvr(ns.monthly_rent)} from ${fMonth(C.monthKey(ns.effective_from))}`]);
     if (['active', 'expiring'].includes(st.key) && !l.tenant_email && s.emails_enabled) alerts.push(['', 'Email', `${name}: no tenant email, so invoices can't be sent`]);
   }
+  const pendingReq = (d.requests || []).filter(r => r.status === 'pending');
+  if (d.me?.is_admin && pendingReq.length) alerts.unshift(['gold', 'Access', `${pendingReq.length} access request(s) awaiting your approval in Admin: ${pendingReq.map(r => esc(r.name)).join(', ')}`]);
   const failed = d.invoices.filter(i => i.status === 'failed' && C.daysBetween(i.issued_on, d.today) <= 7);
   if (failed.length) alerts.push(['bad', 'Email', `${failed.length} invoice email(s) failed to send this week. See Invoices.`]);
   return `
@@ -425,10 +485,10 @@ function leaseCard(l) {
     prog = `<div class="bar"><i style="width:${total ? Math.round(done / total * 100) : 0}%"></i></div><div class="small faint">${left >= 0 ? left + ' days remaining' : 'Ended ' + fDate(l.end_date)}</div>`;
   }
   return `<div class="card lease">
-    <div class="row between" style="align-items:flex-start"><div><div class="eyebrow">${esc(sp?.name)}</div><h3>${esc(l.tenant_name)}</h3>${l.tenant_email ? `<div class="small faint">${esc(l.tenant_email)}</div>` : ''}</div>
+    <div class="row between" style="align-items:flex-start"><div><div class="eyebrow">${esc(sp?.name)}</div><h3>${esc(l.tenant_name)}</h3>${l.billing_name && l.billing_name !== l.tenant_name ? `<div class="small muted">Billed as ${esc(l.billing_name)}</div>` : ''}${l.tenant_email ? `<div class="small faint">${esc(l.tenant_email)}</div>` : ''}</div>
       <div class="actions" style="justify-content:flex-end">${chip(LSTAT[st.key], st.label)}${chip(RECORD[sc.record.key], sc.record.label)}</div></div>
     <dl>
-      <dt>Rent</dt><dd><span class="rent">${mvr(l.monthly_rent)}</span> <span class="faint">a month</span></dd>
+      <dt>Rent</dt><dd><span class="rent">${mvr(d.curRent(l))}</span> <span class="faint">a month</span>${(() => { const ns = C.nextStep(l, C.monthKey(d.today > l.start_date ? d.today : l.start_date)); return ns ? `<div class="small muted">Changes to ${mvr(ns.monthly_rent)} from ${fMonth(C.monthKey(ns.effective_from))}</div>` : ''; })()}<div><button class="linkbtn" data-steps="${l.id}">Rent schedule${l.rent_steps.length ? ` (${l.rent_steps.length + 1} periods)` : ''}</button></div></dd>
       <dt>Term</dt><dd>${fDate(l.start_date)} to ${l.end_date ? fDate(l.end_date) : '<span class="faint">end date to confirm</span>'}${prog}</dd>
       <dt>Due</dt><dd>${ord(+l.due_day)} of each month${+l.grace_days ? `, ${l.grace_days} days' grace` : ''}</dd>
       <dt>Late fine</dt><dd>${esc(fineText(l, d.settings))}</dd>
@@ -606,6 +666,7 @@ function activity() {
       case 'spaces': return `${verb} space ${esc(row.name)}`;
       case 'deposits': return `${verb} ${esc((DEPKIND[row.kind] || 'a deposit').toLowerCase())} of ${mvr(row.amount)} for ${ln(row.lease_id)}`;
       case 'fine_waivers': return `${verb} a fine waiver of ${mvr(row.amount)} for ${ln(row.lease_id)}, ${fMonth(C.monthKey(row.period || ''))}: ${esc(row.reason)}`;
+      case 'rent_steps': return `${verb} a rent change to ${mvr(row.monthly_rent)} from ${fMonth(C.monthKey(row.effective_from || ''))} for ${ln(row.lease_id)}`;
       case 'attachments': return `${verb} ${row.kind === 'agreement' ? 'the signed agreement' : 'a receipt for ' + fMonth(C.monthKey(row.period || ''))} for ${ln(row.lease_id)} (${esc(row.file_name)})`;
       case 'invoices': return a.action === 'INSERT' ? `issued ${esc((KIND[row.kind] || 'invoice').toLowerCase())} ${esc(row.number)} to ${ln(row.lease_id)}` : `updated invoice ${esc(row.number)} (${esc(row.status)})`;
       default: return `${verb} settings`;
@@ -623,7 +684,12 @@ function adminView() {
   <div class="row"><button class="btn" data-act="pay">Rent received</button><button class="btn" data-act="deposit">Deposit or advance</button><button class="btn" data-act="payouts">Payouts to family</button><button class="btn ghost" data-act="expense">Building expense</button></div>
 
   <div class="section-head"><div><div class="eyebrow">Tenants</div><h2>Agreements</h2></div><div class="row"><button class="btn ghost small" data-act="space-new">Add space</button><button class="btn small" data-act="lease-new">Add agreement</button></div></div>
-  <div class="card adminlist">${d.leases.map(l => { const st = C.leaseStatus(l, d.today); return `<div class="item"><div>${esc(l.tenant_name)} <span class="faint">· ${esc(d.spaceById[l.space_id]?.name)}</span><div class="small faint">${mvr(l.monthly_rent)} · ${fDate(l.start_date)} to ${l.end_date ? fDate(l.end_date) : 'open'}${l.tenant_email ? '' : ' · <span style="color:var(--warn)">no email</span>'}</div></div><div class="actions">${chip(LSTAT[st.key], st.label)}<button class="btn ghost small" data-statement="${l.id}">Statement</button><button class="btn ghost small" data-edit="leases:${l.id}">Edit</button></div></div>`; }).join('')}</div>
+  <div class="card adminlist">${d.leases.map(l => { const st = C.leaseStatus(l, d.today); return `<div class="item"><div>${esc(l.tenant_name)} <span class="faint">· ${esc(d.spaceById[l.space_id]?.name)}</span><div class="small faint">${mvr(d.curRent(l))}${l.rent_steps.length ? ' (stepped)' : ''} · ${fDate(l.start_date)} to ${l.end_date ? fDate(l.end_date) : 'open'}${l.tenant_email ? '' : ' · <span style="color:var(--warn)">no email</span>'}${l.billing_name ? '' : ' · <span style="color:var(--warn)">billing name not set</span>'}</div></div><div class="actions">${chip(LSTAT[st.key], st.label)}<button class="btn ghost small" data-statement="${l.id}">Statement</button><button class="btn ghost small" data-edit="leases:${l.id}">Edit</button></div></div>`; }).join('')}</div>
+
+  ${(() => { const rq = (d.requests || []).filter(r => r.status === 'pending'); const past = (d.requests || []).filter(r => ['approved', 'declined'].includes(r.status)).slice(0, 5);
+    return `<div class="section-head"><div><div class="eyebrow">Verified emails</div><h2>Access requests</h2></div></div>
+    <div class="card adminlist">${rq.length ? rq.map(r => `<div class="item"><div>${esc(r.name)} ${chip('warn', 'awaiting approval')}<div class="small faint">${esc(r.email)}${r.relation ? ' · ' + esc(r.relation) : ''} · verified ${fDate((r.verified_at || r.created_at).slice(0, 10))}</div>${r.note ? `<div class="small muted">"${esc(r.note)}"</div>` : ''}</div><div class="actions"><button class="btn small" data-approve="${r.id}">Approve</button><button class="btn danger small" data-decline="${r.id}">Decline</button></div></div>`).join('') : '<div class="empty small">No requests waiting</div>'}
+    ${past.length ? `<div class="small faint" style="padding-top:12px">Recent: ${past.map(r => `${esc(r.name)} (${r.status})`).join(', ')}</div>` : ''}</div>`; })()}
 
   <div class="section-head"><div><div class="eyebrow">Access</div><h2>Family members</h2></div><button class="btn small" data-act="member-new">Add member</button></div>
   <div class="card adminlist">${d.members.map(m => `<div class="item"><div>${esc(m.name)} ${!m.active ? chip('', 'inactive') : ''}${m.is_admin ? chip('gold', 'admin') : ''}<div class="small faint">${esc(m.email || 'no email yet, cannot sign in')} · ${{ fixed: 'fixed share', equal: 'equal share', none: 'no share' }[m.share_type]}</div></div><div class="actions">${m.email ? `<button class="btn ghost small" data-setpw="${m.id}">Set password</button>` : ''}<button class="btn ghost small" data-edit="members:${m.id}">Edit</button></div></div>`).join('')}</div>
@@ -652,7 +718,7 @@ function statement(id) {
   const canEmail = admin && l.tenant_email;
   dlg.className = 'wide';
   dlg.innerHTML = `<div class="inner">
-    <div class="dhead"><div><div class="eyebrow">${esc(d.spaceById[l.space_id]?.name)}</div><h3 style="margin-bottom:2px">${esc(l.tenant_name)}</h3><div class="small faint">${mvr(l.monthly_rent)} a month · ${esc(fineText(l, d.settings))}</div></div><button class="iconbtn" data-x="close" style="font-size:1.2rem;flex:none">✕</button></div>
+    <div class="dhead"><div><div class="eyebrow">${esc(d.spaceById[l.space_id]?.name)}</div><h3 style="margin-bottom:2px">${esc(l.tenant_name)}</h3><div class="small faint">${mvr(d.curRent(l))} a month${l.rent_steps.length ? ' (stepped)' : ''} · ${esc(fineText(l, d.settings))}</div></div><button class="iconbtn" data-x="close" style="font-size:1.2rem;flex:none">✕</button></div>
     <div class="split">
       <div class="card"><div class="small faint">Rent overdue</div><div style="color:${sc.summary.arrears ? 'var(--bad)' : 'var(--good)'}">${mvr(sc.summary.arrears)}</div></div>
       <div class="card"><div class="small faint">Fines owed</div><div style="color:${sc.summary.finesOutstanding ? 'var(--warn)' : 'var(--ink)'}">${mvr(sc.summary.finesOutstanding)}</div></div>
@@ -788,7 +854,7 @@ function payForm(preLease, preMonth, preSource) {
       const row = d.sched[l.id].rows.find(r => r.month === k);
       const hint = document.getElementById('payHint');
       const adv = E.source.value === 'advance' ? ` Advance left: <b>${mvr(dp.advanceBalance)}</b>.` : '';
-      if (!row) { if (!name || name === 'lease_id' || name === 'period') E.rent_amount.value = l.monthly_rent; hint.innerHTML = `Monthly rent ${mvr(l.monthly_rent)}.${adv}`; return; }
+      if (!row) { const rk = C.rentFor(l, k); if (!name || name === 'lease_id' || name === 'period') E.rent_amount.value = rk; hint.innerHTML = `Rent for ${fMonth(k)}: ${mvr(rk)}.${adv}`; return; }
       if (!name || name === 'lease_id' || name === 'period' || name === 'source') {
         let amt = row.rentOutstanding;
         if (E.source.value === 'advance') amt = Math.min(amt, dp.advanceBalance);
@@ -891,13 +957,15 @@ function payoutsForm() {
 
 const LEASE_FIELDS = () => [
   { name: 'space_id', label: 'Space', type: 'select', required: true, options: S.data.spaces.map(s => [s.id, s.name]) },
-  { name: 'tenant_name', label: 'Leased to', required: true, half: true },
+  { name: 'tenant_name', label: 'Short name (shown in the portal)', required: true, half: true },
   { name: 'tenant_contact', label: 'Tenant phone', half: true },
+  { name: 'billing_name', label: 'Billing name, exactly as in the agreement', help: 'Printed on invoices, receipts and statements, e.g. the registered company name. Leave blank to use the short name.' },
+  { name: 'billing_address', label: 'Billing address (optional)', type: 'textarea' },
   { name: 'tenant_email', label: 'Tenant email (for invoices)', type: 'email' },
   { name: 'auto_invoice', label: 'Send invoices and reminders automatically', type: 'checkbox' },
   { name: 'start_date', label: 'Start date', type: 'date', required: true, half: true },
   { name: 'end_date', label: 'End date', type: 'date', half: true, help: 'Leave blank if not confirmed' },
-  { name: 'monthly_rent', label: 'Monthly rent (MVR)', type: 'number', required: true, half: true },
+  { name: 'monthly_rent', label: 'Starting monthly rent (MVR)', type: 'number', required: true, half: true, help: 'Later changes go in the Rent schedule' },
   { name: 'agreement_ref', label: 'Agreement reference', half: true },
   { name: 'due_day', label: 'Rent due on day', type: 'number', required: true, half: true, help: '1 to 28' },
   { name: 'grace_days', label: 'Grace days', type: 'number', half: true },
@@ -913,7 +981,7 @@ const MEMBER_FIELDS = [
   { name: 'is_admin', label: 'Can record and edit (admin)', type: 'checkbox' },
   { name: 'active', label: 'Active', type: 'checkbox' }
 ];
-const leaseRow = v => ({ ...v, tenant_email: v.tenant_email ? v.tenant_email.toLowerCase() : null, grace_days: v.grace_days || 0, fine_value: v.fine_value || 0 });
+const leaseRow = v => ({ ...v, billing_name: v.billing_name ? v.billing_name.trim() : null, tenant_email: v.tenant_email ? v.tenant_email.toLowerCase() : null, grace_days: v.grace_days || 0, fine_value: v.fine_value || 0 });
 
 function editRecord(table, id) {
   const d = S.data;
@@ -995,6 +1063,75 @@ function connectGmailForm() {
       S.sender = { user: data.user, connected: true };
       toast(`Connected. Confirmation email sent to ${data.testSentTo}`, 6000); render();
     } });
+}
+
+/* ---------- rent schedule ---------- */
+function stepsDialog(id) {
+  const d = S.data, l = d.leaseById[id], admin = d.me?.is_admin;
+  const steps = l.rent_steps.slice().sort((a, b) => (a.effective_from < b.effective_from ? -1 : 1));
+  const curK = C.monthKey(d.today);
+  const periods = [{ from: l.start_date, rent: +l.monthly_rent, note: 'Starting rent', id: null }, ...steps.map(s => ({ from: s.effective_from, rent: +s.monthly_rent, note: s.note, id: s.id }))];
+  periods.forEach((p, i) => { const nx = periods[i + 1]; p.to = nx ? C.addDays(nx.from, -1) : l.end_date; });
+  dlg.className = 'wide';
+  dlg.innerHTML = `<div class="inner"><div class="dhead"><div><div class="eyebrow">${esc(d.leaseName(l))}</div><h3 style="margin:0 0 4px">Rent schedule</h3><p class="small faint" style="margin:0">Each month is billed at the rent in force on that month. Fines that depend on rent use that month's rent.</p></div><button class="iconbtn" data-x="close" style="font-size:1.2rem;flex:none">✕</button></div>
+    <div class="tablewrap" style="margin-top:16px"><table><thead><tr><th>From</th><th>To</th><th class="num">Monthly rent</th><th>Note</th>${admin ? '<th></th>' : ''}</tr></thead><tbody>
+    ${periods.map(p => { const now = C.monthKey(p.from) <= curK && (!p.to || C.monthKey(p.to) >= curK); return `<tr${now ? ' style="background:rgba(212,175,55,.07)"' : ''}><td style="white-space:nowrap">${fMonth(C.monthKey(p.from))}${now ? ' ' + chip('gold', 'current') : ''}</td><td style="white-space:nowrap">${p.to ? fMonth(C.monthKey(p.to)) : '<span class="faint">open</span>'}</td><td class="num">${num(p.rent)}</td><td class="small">${esc(p.note || '')}</td>${admin ? `<td>${p.id ? `<button class="iconbtn" data-delstep="${p.id}">✕</button>` : '<button class="linkbtn" data-edit="leases:' + l.id + '">Edit</button>'}</td>` : ''}</tr>`; }).join('')}
+    </tbody></table></div>
+    ${admin ? `<form id="stepForm" style="margin-top:18px"><div class="eyebrow" style="margin-bottom:8px">Add a rent change</div>
+      <div class="two"><label class="f">Effective from (month)<input type="month" name="from" required></label><label class="f">New monthly rent (MVR)<input type="number" name="rent" step="0.01" min="0" required inputmode="decimal"></label></div>
+      <label class="f">Note (optional)<input name="note" placeholder="e.g. Year 3 review, per clause 5.2"></label>
+      <button class="btn small" type="submit">Add change</button></form>` : ''}</div>`;
+  dlg.querySelector('[data-x=close]').onclick = () => dlg.close();
+  const f = dlg.querySelector('#stepForm');
+  if (f) f.onsubmit = async e => {
+    e.preventDefault();
+    const from = f.elements.from.value + '-01';
+    if (from <= l.start_date) return toast('The change must start after the agreement start. To change the starting rent, edit the agreement.');
+    if (l.end_date && from > l.end_date) return toast('That date is after the agreement ends');
+    if (l.rent_steps.some(s => C.monthKey(s.effective_from) === f.elements.from.value)) return toast('There is already a change for that month');
+    const { error } = await sb.from('rent_steps').insert({ lease_id: id, effective_from: from, monthly_rent: +f.elements.rent.value, note: f.elements.note.value.trim() || null });
+    if (error) return toast(error.message);
+    toast('Rent change added'); await load(); stepsDialog(id);
+  };
+  if (!dlg.open) dlg.showModal();
+}
+
+/* ---------- access decisions ---------- */
+function approveForm(id) {
+  const d = S.data, r = d.requests.find(x => x.id === id);
+  const unlinked = d.members.filter(m => !m.email && m.active);
+  openForm({ title: 'Approve ' + r.name, saveLabel: 'Approve', fields: [
+    { name: 'link', label: 'Give access as', type: 'select', required: true,
+      options: [['new', 'New view-only member (no share)'], ...unlinked.map(m => [m.id, `Link to ${m.name} (${m.share_type === 'fixed' ? 'fixed share' : m.share_type === 'equal' ? 'equal share' : 'no share'})`])],
+      help: 'If this person is one of the listed family members, link them so their share and statements stay with them.' },
+    { name: 'name', label: 'Name to show (new member only)', half: true }, { name: 'relation', label: 'Relation (new member only)', half: true }],
+    values: { link: 'new', name: r.name, relation: r.relation || '' },
+    intro: `<p class="help" style="margin:-8px 0 14px">${esc(r.email)} verified ${fDate((r.verified_at || r.created_at).slice(0, 10))}. Approved members can view everything but cannot change anything.</p>`,
+    submit: async v => {
+      let memberId = v.link, res;
+      if (v.link === 'new') {
+        res = await sb.from('members').insert({ name: v.name || r.name, relation: v.relation || null, email: r.email, share_type: 'none', is_admin: false, active: true, sort: 60 }).select('id').single();
+        if (res.error) { toast(res.error.message); return false; }
+        memberId = res.data.id;
+      } else {
+        res = await sb.from('members').update({ email: r.email }).eq('id', v.link);
+        if (res.error) { toast(res.error.message); return false; }
+      }
+      const up = await sb.from('access_requests').update({ status: 'approved', decided_at: new Date().toISOString(), decided_by: S.session.user.email, member_id: memberId }).eq('id', id);
+      if (up.error) { toast(up.error.message); return false; }
+      const { error } = await sb.functions.invoke('access', { body: { mode: 'notify', request_id: id } });
+      toast(error ? `Approved. Email not sent: ${await fnError(error)}` : `Approved. ${r.name} has been emailed.`, 6000);
+      await load();
+    } });
+}
+async function declineRequest(id) {
+  const r = S.data.requests.find(x => x.id === id);
+  if (!confirm(`Decline the request from ${r.name} (${r.email})? They will be told by email.`)) return;
+  const up = await sb.from('access_requests').update({ status: 'declined', decided_at: new Date().toISOString(), decided_by: S.session.user.email }).eq('id', id);
+  if (up.error) return toast(up.error.message);
+  const { error } = await sb.functions.invoke('access', { body: { mode: 'notify', request_id: id } });
+  toast(error ? `Declined. Email not sent: ${await fnError(error)}` : 'Declined and notified', 5000);
+  load();
 }
 
 /* ---------- documents ---------- */
@@ -1100,11 +1237,15 @@ function pdfReport() {
 
 /* ---------- events ---------- */
 document.addEventListener('click', async e => {
-  const t = e.target.closest('[data-tab],[data-act],[data-del],[data-edit],[data-setpw],[data-statement],[data-pay],[data-waive],[data-bill],[data-deposit-for],[data-doc],[data-deldoc],[data-attach],[data-receipt]');
+  const t = e.target.closest('[data-tab],[data-act],[data-del],[data-edit],[data-setpw],[data-statement],[data-pay],[data-waive],[data-bill],[data-deposit-for],[data-doc],[data-deldoc],[data-attach],[data-receipt],[data-approve],[data-decline],[data-steps],[data-delstep]');
   if (!t) return;
   const ds = t.dataset, d = S.data;
   if (ds.tab) { S.tab = ds.tab; window.scrollTo(0, 0); return render(); }
   if (ds.statement) { S.lastStatement = ds.statement; return statement(ds.statement); }
+  if (ds.steps) return stepsDialog(ds.steps);
+  if (ds.delstep) { const st = S.data.steps.find(x => x.id === ds.delstep); if (!st || !confirm(`Remove the rent change from ${fMonth(C.monthKey(st.effective_from))}?`)) return; const { error } = await sb.from('rent_steps').delete().eq('id', st.id); if (error) return toast(error.message); toast('Removed'); await load(); return stepsDialog(st.lease_id); }
+  if (ds.approve) return approveForm(ds.approve);
+  if (ds.decline) return declineRequest(ds.decline);
   if (ds.receipt) return sendReceipt(ds.receipt);
   if (ds.doc) return openDoc(ds.doc);
   if (ds.deldoc) return deleteDoc(ds.deldoc);
@@ -1117,6 +1258,8 @@ document.addEventListener('click', async e => {
   if (ds.del) { const [tb, id] = ds.del.split(':'); if (confirm('Delete this entry permanently? It will still appear in the activity log.')) await del(tb, id); return; }
   if (ds.edit) { const [tb, id] = ds.edit.split(':'); return editRecord(tb, id); }
   switch (ds.act) {
+    case 'request-access': renderRequest(1); break;
+    case 'to-login': renderLogin(); break;
     case 'signout': S.channel && sb.removeChannel(S.channel); S.channel = null; sb.auth.signOut(); break;
     case 'mypass': openForm({ title: 'Change your password', fields: [
       { name: 'p1', label: 'New password', type: 'password', required: true, help: 'At least 8 characters' },

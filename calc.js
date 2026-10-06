@@ -18,9 +18,21 @@
   const minS = (a, b) => (a < b ? a : b);
   const lastDay = key => { const [y, m] = key.split('-').map(Number); return new Date(Date.UTC(y, m, 0)).getUTCDate(); };
 
-  function fineFor(lease, daysLate, settings) {
+  // Rent in force for a month: the latest step on or before it, else the agreement's starting rent.
+  // lease.rent_steps = [{ effective_from: 'YYYY-MM-DD', monthly_rent }]
+  function rentFor(lease, k) {
+    let rent = +lease.monthly_rent;
+    const steps = (lease.rent_steps || []).slice().sort((a, b) => (a.effective_from < b.effective_from ? -1 : 1));
+    for (const s of steps) if (monthKey(s.effective_from) <= k) rent = +s.monthly_rent;
+    return rent;
+  }
+  function nextStep(lease, k) {
+    return (lease.rent_steps || []).filter(s => monthKey(s.effective_from) > k).sort((a, b) => (a.effective_from < b.effective_from ? -1 : 1))[0] || null;
+  }
+
+  function fineFor(lease, daysLate, settings, rentOverride) {
     if (daysLate <= 0) return 0;
-    const rent = +lease.monthly_rent, v = +lease.fine_value || 0;
+    const rent = rentOverride != null ? +rentOverride : +lease.monthly_rent, v = +lease.fine_value || 0;
     switch (lease.fine_type) {
       case 'daily': {
         const cap = rent * (+settings.fine_cap_pct || 0) / 100;
@@ -35,7 +47,7 @@
   // Fine owed if the rent for this row is completed on `date` (used when recording a payment)
   function fineIfPaidOn(lease, row, date, settings) {
     const days = Math.max(0, daysBetween(row.deadline, date));
-    return r2(Math.max(0, fineFor(lease, days, settings) - row.finePaid - row.fineWaived));
+    return r2(Math.max(0, fineFor(lease, days, settings, row.rent) - row.finePaid - row.fineWaived));
   }
 
   function depositSummary(lease, deposits, payments) {
@@ -61,9 +73,9 @@
     const startK = maxS(monthKey(lease.start_date), monthKey(settings.tracking_start));
     const endK = minS(monthKey(today), lease.end_date ? monthKey(lease.end_date) : '9999-12');
     const pays = payments.filter(p => p.lease_id === lease.id);
-    const rent = +lease.monthly_rent;
     const rows = [];
     for (const k of (startK <= endK ? monthsBetween(startK, endK) : [])) {
+      const rent = rentFor(lease, k);
       const due = k + '-' + pad(Math.min(+lease.due_day || 1, lastDay(k)));
       const deadline = addDays(due, +lease.grace_days || 0);
       const ps = pays.filter(p => monthKey(p.period) === k)
@@ -78,7 +90,7 @@
       else if (fullOn) { daysLate = Math.max(0, daysBetween(deadline, fullOn)); status = daysLate > 0 ? 'late' : 'ontime'; }
       else if (today <= deadline) status = rentPaid > 0 ? 'partdue' : 'due';
       else { daysLate = daysBetween(deadline, today); status = rentPaid > 0 ? 'partial' : 'unpaid'; }
-      const fineAccrued = fineFor(lease, daysLate, settings);
+      const fineAccrued = fineFor(lease, daysLate, settings, rent);
       const fineWaived = r2(waivers.filter(w => monthKey(w.period) === k).reduce((a, w) => a + +w.amount, 0));
       rows.push({
         month: k, due, deadline, rent, rentPaid: r2(rentPaid), rentOutstanding: r2(Math.max(0, rent - rentPaid)),
@@ -159,6 +171,6 @@
     return { rows, entitled, paid, balance: r2(entitled - paid) };
   }
 
-  const api = { r2, monthKey, fineIfPaidOn, depositSummary, addMonths, monthsBetween, daysBetween, addDays, fineFor, leaseStatus, leaseSchedule, waterfall, memberStatement };
+  const api = { r2, monthKey, rentFor, nextStep, fineIfPaidOn, depositSummary, addMonths, monthsBetween, daysBetween, addDays, fineFor, leaseStatus, leaseSchedule, waterfall, memberStatement };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Calc = api;
 })(typeof window !== 'undefined' ? window : globalThis);
