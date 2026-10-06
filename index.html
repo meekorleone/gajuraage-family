@@ -146,6 +146,12 @@ dialog iframe{width:100%;height:60vh;border:1px solid var(--line);border-radius:
 .actions{display:flex;gap:6px;flex-wrap:wrap}
 .split{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0}
 .split .card{padding:14px}
+.doc{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:9px;border:1px solid var(--line);background:rgba(212,175,55,.06);color:var(--gold-hi);font-size:.76rem;cursor:pointer;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.doc:hover{background:rgba(212,175,55,.12)}
+.doc svg{flex:none}
+.docs{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+input[type=file]{font-size:.85rem;color:var(--muted)}
+input[type=file]::file-selector-button{margin-right:10px;border:1px solid var(--line);background:rgba(212,175,55,.08);color:var(--gold-hi);border-radius:9px;padding:7px 12px;font:500 .8rem Inter,sans-serif;cursor:pointer}
 .loading{display:grid;place-items:center;height:60vh;color:var(--gold);font-family:'Cormorant Garamond',serif;letter-spacing:.3em;font-size:1.1rem}
 .dhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:nowrap}
 .dhead > div{min-width:0}
@@ -249,15 +255,15 @@ async function load() {
     sb.from('settings').select('*').maybeSingle(), q('members', 'sort'), q('spaces', 'sort'), q('leases', 'start_date'),
     q('payments', 'received_on', false), q('expenses', 'spent_on', false), q('distributions', 'paid_on', false),
     sb.from('audit_log').select('*').order('at', { ascending: false }).limit(150),
-    q('deposits', 'occurred_on', false), q('fine_waivers', 'created_at', false), q('invoices', 'created_at', false)
+    q('deposits', 'occurred_on', false), q('fine_waivers', 'created_at', false), q('invoices', 'created_at', false), q('attachments', 'created_at', false)
   ]);
   const err = res.find(r => r.error);
   if (err) { app.innerHTML = `<div class="empty">Could not load data: ${esc(err.error.message)}</div>`; return; }
-  const [settings, members, spaces, leases, payments, expenses, distributions, audit, deposits, waivers, invoices] = res.map(r => r.data);
+  const [settings, members, spaces, leases, payments, expenses, distributions, audit, deposits, waivers, invoices, attachments] = res.map(r => r.data);
   if (!settings) return renderNotMember();
   const email = S.session.user.email.toLowerCase();
   const me = members.find(m => (m.email || '').toLowerCase() === email);
-  S.data = { settings, members, spaces, leases, payments, expenses, distributions, audit, deposits, waivers, invoices, me };
+  S.data = { settings, members, spaces, leases, payments, expenses, distributions, audit, deposits, waivers, invoices, attachments, me };
   compute(); render(); subscribe();
 }
 
@@ -278,6 +284,9 @@ function compute() {
   d.statements = Object.fromEntries(d.sharers.map(m => [m.id, C.memberStatement(m, d.wf, d.distributions)]));
   d.liveLeases = d.leases.filter(l => ['active', 'expiring'].includes(C.leaseStatus(l, t).key));
   d.leaseName = l => l ? `${l.tenant_name} · ${d.spaceById[l.space_id]?.name || ''}` : '';
+  d.attById = Object.fromEntries(d.attachments.map(a => [a.id, a]));
+  d.agreementsOf = id => d.attachments.filter(a => a.kind === 'agreement' && a.lease_id === id);
+  d.receiptsOf = (id, k) => d.attachments.filter(a => a.kind === 'receipt' && a.lease_id === id && a.period && C.monthKey(a.period) === k);
 }
 
 let reloadTimer;
@@ -423,7 +432,7 @@ function leaseCard(l) {
       <dt>Term</dt><dd>${fDate(l.start_date)} to ${l.end_date ? fDate(l.end_date) : '<span class="faint">end date to confirm</span>'}${prog}</dd>
       <dt>Due</dt><dd>${ord(+l.due_day)} of each month${+l.grace_days ? `, ${l.grace_days} days' grace` : ''}</dd>
       <dt>Late fine</dt><dd>${esc(fineText(l, d.settings))}</dd>
-      ${l.agreement_ref ? `<dt>Agreement</dt><dd>${esc(l.agreement_ref)}</dd>` : ''}
+      <dt>Agreement</dt><dd><div class="docs">${l.agreement_ref ? `<span>${esc(l.agreement_ref)}</span>` : ''}${d.agreementsOf(l.id).map(a => docChip(a, false)).join('') || (l.agreement_ref ? '' : '<span class="faint">no signed copy attached</span>')}${d.me?.is_admin ? `<button class="linkbtn" data-attach="agreement:${l.id}">${d.agreementsOf(l.id).length ? 'Add another' : 'Attach PDF'}</button>` : ''}</div></dd>
       <dt>Deposits</dt><dd>${dp.securityIn || dp.advanceIn ? `Security held ${mvr(dp.securityHeld)}${dp.advanceIn ? ` · Advance left ${mvr(dp.advanceBalance)} of ${mvr(dp.advanceIn)}` : ''}` : '<span class="faint">none recorded</span>'}</dd>
       <dt>Paid</dt><dd>${mvr(sc.summary.rentPaid)} of ${mvr(sc.summary.rentDue)} due${sc.summary.arrears ? ` · <b style="color:var(--bad)">${mvr(sc.summary.arrears)} overdue</b>` : ''}</dd>
       <dt>Fines</dt><dd>${mvr(sc.summary.finesAccrued)} charged${sc.summary.finesWaived ? ` · ${mvr(sc.summary.finesWaived)} waived` : ''} · ${mvr(sc.summary.finesPaid)} collected${sc.summary.finesOutstanding ? ` · <b style="color:var(--warn)">${mvr(sc.summary.finesOutstanding)} owed</b>` : ''}</dd>
@@ -458,7 +467,7 @@ function paymentsTable(rows, withTotals = true) {
       <td>${esc(l?.tenant_name)}<div class="small faint">${esc(d.spaceById[l?.space_id]?.name)}</div></td>
       <td style="white-space:nowrap">${fMonth(C.monthKey(p.period))}${p.source === 'advance' ? '<br>' + chip('gold', 'from advance') : ''}</td>
       <td class="num">${num(p.rent_amount)}</td><td class="num">${+p.fine_amount ? num(p.fine_amount) : '<span class="faint">–</span>'}</td>
-      <td class="small">${esc([p.method, p.reference].filter(Boolean).join(' · '))}${p.note ? `<div class="faint">${esc(p.note)}</div>` : ''}</td>
+      <td class="small">${esc([p.method, p.reference].filter(Boolean).join(' · '))}${p.note ? `<div class="faint">${esc(p.note)}</div>` : ''}${(() => { const rc = d.receiptsOf(p.lease_id, C.monthKey(p.period)); return rc.length ? `<div class="docs" style="margin-top:4px">${rc.map(a => docChip(a, false)).join('')}</div>` : ''; })()}</td>
       ${admin ? `<td><button class="iconbtn" title="Delete" data-del="payments:${p.id}">✕</button></td>` : ''}</tr>`; }).join('')}</tbody>
     ${withTotals ? `<tfoot><tr><td colspan="3">Total (MVR)</td><td class="num">${num(tr)}</td><td class="num">${num(tf)}</td><td colspan="${admin ? 2 : 1}"></td></tr></tfoot>` : ''}
   </table></div>`;
@@ -597,6 +606,7 @@ function activity() {
       case 'spaces': return `${verb} space ${esc(row.name)}`;
       case 'deposits': return `${verb} ${esc((DEPKIND[row.kind] || 'a deposit').toLowerCase())} of ${mvr(row.amount)} for ${ln(row.lease_id)}`;
       case 'fine_waivers': return `${verb} a fine waiver of ${mvr(row.amount)} for ${ln(row.lease_id)}, ${fMonth(C.monthKey(row.period || ''))}: ${esc(row.reason)}`;
+      case 'attachments': return `${verb} ${row.kind === 'agreement' ? 'the signed agreement' : 'a receipt for ' + fMonth(C.monthKey(row.period || ''))} for ${ln(row.lease_id)} (${esc(row.file_name)})`;
       case 'invoices': return a.action === 'INSERT' ? `issued ${esc((KIND[row.kind] || 'invoice').toLowerCase())} ${esc(row.number)} to ${ln(row.lease_id)}` : `updated invoice ${esc(row.number)} (${esc(row.status)})`;
       default: return `${verb} settings`;
     }
@@ -651,20 +661,23 @@ function statement(id) {
     </div>
     ${canEmail ? `<div class="row" style="margin-bottom:14px"><button class="btn small" data-bill="send:rent:${id}:${C.monthKey(d.today)}">Email ${fMonth(C.monthKey(d.today))} invoice</button>${sc.summary.arrears || sc.summary.finesOutstanding ? `<button class="btn small" data-bill="send:reminder:${id}:">Email reminder</button>` : ''}<button class="btn ghost small" data-bill="preview:rent:${id}:${C.monthKey(d.today)}">Preview invoice</button>${sc.summary.arrears || sc.summary.finesOutstanding ? `<button class="btn ghost small" data-bill="preview:reminder:${id}:">Preview reminder</button>` : ''}</div>` : admin ? '<p class="note" style="margin-top:0">Add the tenant\'s email (Edit agreement) to send invoices.</p>' : ''}
     <div class="tablewrap"><table>
-      <thead><tr><th>Month</th><th class="num">Rent paid</th><th class="num">Fine</th><th class="num">Waived</th><th class="num">Fine paid</th><th class="num">Owed</th><th>Status</th>${admin ? '<th></th>' : ''}</tr></thead>
+      <thead><tr><th>Month</th><th class="num">Rent paid</th><th class="num">Fine</th><th class="num">Waived</th><th class="num">Fine paid</th><th class="num">Owed</th><th>Status</th><th>Receipts</th>${admin ? '<th></th>' : ''}</tr></thead>
       <tbody>${rows.map(r => `<tr>
         <td style="white-space:nowrap">${fMonth(r.month)}<div class="small faint">due ${fDate(r.deadline)}</div></td>
         <td class="num">${num(r.rentPaid)}<div class="small faint">of ${num(r.rent)}</div></td>
         <td class="num">${r.fineAccrued ? num(r.fineAccrued) : '–'}</td><td class="num">${r.fineWaived ? num(r.fineWaived) : '–'}</td><td class="num">${r.finePaid ? num(r.finePaid) : '–'}</td>
         <td class="num" style="${r.rentOutstanding + r.fineOutstanding > 0 && !['due', 'partdue'].includes(r.status) ? 'color:var(--bad)' : ''}">${num((['due', 'partdue'].includes(r.status) ? r.rentOutstanding : (r.status === 'unpaid' || r.status === 'partial' ? r.rentOutstanding : 0)) + r.fineOutstanding)}</td>
         <td>${chip(STATUS[r.status][0], STATUS[r.status][1](r))}</td>
+        <td><div class="docs">${d.receiptsOf(id, r.month).map(a => docChip(a, true)).join('') || (r.rentPaid ? '<span class="faint small">none</span>' : '')}${admin ? `<button class="linkbtn" data-attach="receipt:${id}:${r.month}">Attach</button>` : ''}</div></td>
         ${admin ? `<td><div class="actions" style="flex-wrap:nowrap">
           ${r.rentOutstanding > 0 || r.fineOutstanding > 0 ? `<button class="btn ghost small" data-pay="${id}:${r.month}">Record</button>` : ''}
           ${r.rentOutstanding > 0 && dp.advanceBalance > 0 ? `<button class="btn ghost small" data-pay="${id}:${r.month}:advance">Use advance</button>` : ''}
           ${r.fineOutstanding > 0 ? `<button class="btn ghost small" data-waive="${id}:${r.month}">Waive</button>` : ''}
           ${r.fineOutstanding > 0 && l.tenant_email ? `<button class="btn ghost small" data-bill="send:fine:${id}:${r.month}">Invoice fine</button>` : ''}
-        </div></td>` : ''}</tr>`).join('') || `<tr><td colspan="8" class="empty">No months due since ${fDate(d.settings.tracking_start)}</td></tr>`}</tbody>
+        </div></td>` : ''}</tr>`).join('') || `<tr><td colspan="9" class="empty">No months due since ${fDate(d.settings.tracking_start)}</td></tr>`}</tbody>
     </table></div>
+    <div class="row between" style="margin:22px 0 10px"><h3 style="font-size:1.15rem">Signed agreement</h3>${admin ? `<button class="btn ghost small" data-attach="agreement:${id}">Attach PDF</button>` : ''}</div>
+    <div class="docs">${d.agreementsOf(id).map(a => docChip(a, true)).join('') || '<span class="faint small">No signed copy attached yet</span>'}</div>
     ${waivers.length ? `<h3 style="margin:22px 0 10px;font-size:1.15rem">Fine waivers</h3><div class="tablewrap"><table><tbody>${waivers.map(w => `<tr><td>${fMonth(C.monthKey(w.period))}</td><td class="num">${num(w.amount)}</td><td class="small">${esc(w.reason)}</td>${admin ? `<td><button class="iconbtn" data-del="fine_waivers:${w.id}">✕</button></td>` : ''}</tr>`).join('')}</tbody></table></div>` : ''}
     <div class="row between" style="margin:22px 0 10px"><h3 style="font-size:1.15rem">Deposits and advances</h3>${admin ? `<button class="btn ghost small" data-deposit-for="${id}">Record</button>` : ''}</div>
     ${depositsTable(deps, false)}
@@ -679,7 +692,8 @@ const opt = (arr, v) => arr.map(([k, l]) => `<option value="${esc(k)}" ${String(
 function field(f, v) {
   if (f.type === 'checkbox') return `<label class="chk"><input type="checkbox" name="${f.name}" ${v ? 'checked' : ''}> ${esc(f.label)}</label>`;
   let input;
-  if (f.type === 'select') input = `<select name="${f.name}" ${f.required ? 'required' : ''}>${opt(f.options, v)}</select>`;
+  if (f.type === 'file') input = `<input type="file" name="${f.name}" accept="${f.accept || ''}" ${f.required ? 'required' : ''}>`;
+  else if (f.type === 'select') input = `<select name="${f.name}" ${f.required ? 'required' : ''}>${opt(f.options, v)}</select>`;
   else if (f.type === 'textarea') input = `<textarea name="${f.name}" rows="3">${esc(v)}</textarea>`;
   else {
     const val = f.type === 'month' && v ? v.slice(0, 7) : v;
@@ -692,6 +706,7 @@ function readForm(form, fields) {
   for (const f of fields) {
     const el = form.elements[f.name];
     if (f.type === 'checkbox') out[f.name] = el.checked;
+    else if (f.type === 'file') out[f.name] = el.files && el.files[0] || null;
     else {
       let v = el.value.trim();
       if (v === '') v = null; else if (f.type === 'number') v = +v; else if (f.type === 'month') v = v + '-01';
@@ -755,7 +770,8 @@ function payForm(preLease, preMonth, preSource) {
     { name: 'fine_amount', label: 'Late fine (MVR)', type: 'number', half: true },
     { name: 'method', label: 'Method', type: 'select', options: METHODS, half: true },
     { name: 'reference', label: 'Reference', half: true },
-    { name: 'note', label: 'Note', type: 'textarea' }
+    { name: 'note', label: 'Note', type: 'textarea' },
+    { name: 'receipt', label: 'Receipt (optional: PDF or photo, up to 10 MB)', type: 'file', accept: 'application/pdf,image/*' }
   ];
   let fineTouched = false;
   openForm({
@@ -783,13 +799,18 @@ function payForm(preLease, preMonth, preSource) {
       hint.innerHTML = `<b>${fMonth(k)}</b>: ${mvr(row.rent)} due ${fDate(row.deadline)}, ${mvr(row.rentPaid)} already received.${row.fineWaived ? ` ${mvr(row.fineWaived)} of fines waived.` : ''}<br>`
         + (l.fine_type === 'none' ? 'No late fine in this agreement.' : completes ? `Fine for payment on ${fDate(E.received_on.value)}: <b style="color:var(--gold-hi)">${mvr(autoFine)}</b> (calculated automatically).` : `Part payment: the fine keeps accruing until the rent is paid in full.`) + adv;
     },
-    submit: v => {
+    submit: async v => {
       if (!v.rent_amount && !v.fine_amount) { toast('Enter a rent or fine amount'); return false; }
       if (v.source === 'advance') {
         const bal = d.dep[v.lease_id].advanceBalance;
         if ((v.rent_amount || 0) + (v.fine_amount || 0) > bal + 0.005) { toast(`Only ${mvr(bal)} of advance is left for this tenant`); return false; }
       }
-      return save('payments', { ...v, rent_amount: v.rent_amount || 0, fine_amount: v.fine_amount || 0 });
+      const { receipt, ...row } = v;
+      if (receipt) {
+        try { await uploadDoc(receipt, { kind: 'receipt', lease_id: row.lease_id, period: row.period, label: row.reference || null }); }
+        catch (e) { toast('Receipt not attached: ' + e.message, 6000); return false; }
+      }
+      return save('payments', { ...row, rent_amount: row.rent_amount || 0, fine_amount: row.fine_amount || 0 });
     }
   });
 }
@@ -952,6 +973,60 @@ function connectGmailForm() {
     } });
 }
 
+/* ---------- documents ---------- */
+const CLIP = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.5l-8.5 8.5a5.5 5.5 0 01-7.8-7.8l9.2-9.2a3.7 3.7 0 015.2 5.2l-9.2 9.2a1.8 1.8 0 01-2.6-2.6l8.5-8.5"/></svg>';
+const MIME = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', heic: 'image/heic', heif: 'image/heif', webp: 'image/webp' };
+function docChip(a, removable) {
+  const short = a.file_name.length > 26 ? a.file_name.slice(0, 22) + '…' + a.file_name.slice(a.file_name.lastIndexOf('.')) : a.file_name;
+  return `<span class="docs"><button class="doc" data-doc="${a.id}" title="${esc(a.file_name)}">${CLIP}${esc(a.label || short)}</button>${removable && S.data.me?.is_admin ? `<button class="iconbtn" title="Remove" data-deldoc="${a.id}">✕</button>` : ''}</span>`;
+}
+async function uploadDoc(file, { kind, lease_id, period, label }) {
+  if (!file) throw new Error('Choose a file first');
+  if (file.size > 10 * 1024 * 1024) throw new Error('That file is over 10 MB. Please use a smaller scan or photo.');
+  const ext = (file.name.includes('.') ? file.name.split('.').pop() : 'pdf').toLowerCase();
+  const type = file.type || MIME[ext];
+  if (!type || !Object.values(MIME).includes(type)) throw new Error('Only PDF files or photos (JPG, PNG, HEIC) can be attached');
+  if (kind === 'agreement' && type !== 'application/pdf') throw new Error('Please attach the signed agreement as a PDF');
+  const path = `${kind}/${lease_id}/${period ? period.slice(0, 7) + '/' : ''}${crypto.randomUUID()}.${ext}`;
+  const up = await sb.storage.from('documents').upload(path, file, { contentType: type, upsert: false });
+  if (up.error) throw new Error(up.error.message);
+  const ins = await sb.from('attachments').insert({ kind, lease_id, period: period || null, file_path: path, file_name: file.name, size_bytes: file.size, mime: type, label: label || null });
+  if (ins.error) { await sb.storage.from('documents').remove([path]); throw new Error(ins.error.message); }
+}
+async function openDoc(id) {
+  const a = S.data.attById[id]; if (!a) return;
+  const w = window.open('', '_blank'); // open first so mobile browsers don't block it
+  const { data, error } = await sb.storage.from('documents').createSignedUrl(a.file_path, 300);
+  if (error) { if (w) w.close(); return toast(error.message); }
+  if (w) w.location.href = data.signedUrl; else location.href = data.signedUrl;
+}
+async function deleteDoc(id) {
+  const a = S.data.attById[id]; if (!a) return;
+  if (!confirm(`Remove ${a.file_name}? The file is deleted permanently; the activity log keeps a record that it existed.`)) return;
+  const r1 = await sb.from('attachments').delete().eq('id', id);
+  if (r1.error) return toast(r1.error.message);
+  await sb.storage.from('documents').remove([a.file_path]);
+  toast('Removed'); await load(); if (dlg.open && S.lastStatement) statement(S.lastStatement);
+}
+function attachForm(kind, leaseId, month) {
+  const d = S.data, l = d.leaseById[leaseId];
+  const fields = kind === 'agreement'
+    ? [{ name: 'file', label: 'Signed agreement (PDF, up to 10 MB)', type: 'file', accept: 'application/pdf,.pdf', required: true },
+       { name: 'label', label: 'Label (optional)', help: 'e.g. Signed agreement 2025, Addendum, Renewal' }]
+    : [{ name: 'period', label: 'Rent month', type: 'month', required: true },
+       { name: 'file', label: 'Receipt (PDF or photo, up to 10 MB)', type: 'file', accept: 'application/pdf,image/*', required: true },
+       { name: 'label', label: 'Label (optional)', help: 'e.g. Bank transfer slip, Cash receipt no. 214' }];
+  openForm({ title: kind === 'agreement' ? 'Attach signed agreement' : 'Attach rent receipt', saveLabel: 'Upload', fields,
+    values: { period: (month || C.monthKey(d.today)) + '-01' },
+    intro: `<p class="help" style="margin:-8px 0 14px">${esc(d.leaseName(l))}. Visible to all family members; only admins can upload or remove.</p>`,
+    submit: async v => {
+      toast('Uploading…', 1500);
+      try { await uploadDoc(v.file, { kind, lease_id: leaseId, period: v.period, label: v.label }); }
+      catch (e) { toast(e.message, 6000); return false; }
+      toast('Attached'); await load();
+    } });
+}
+
 /* ---------- exports ---------- */
 function download(name, text, type = 'text/csv') {
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
@@ -1001,11 +1076,14 @@ function pdfReport() {
 
 /* ---------- events ---------- */
 document.addEventListener('click', async e => {
-  const t = e.target.closest('[data-tab],[data-act],[data-del],[data-edit],[data-setpw],[data-statement],[data-pay],[data-waive],[data-bill],[data-deposit-for]');
+  const t = e.target.closest('[data-tab],[data-act],[data-del],[data-edit],[data-setpw],[data-statement],[data-pay],[data-waive],[data-bill],[data-deposit-for],[data-doc],[data-deldoc],[data-attach]');
   if (!t) return;
   const ds = t.dataset, d = S.data;
   if (ds.tab) { S.tab = ds.tab; window.scrollTo(0, 0); return render(); }
   if (ds.statement) { S.lastStatement = ds.statement; return statement(ds.statement); }
+  if (ds.doc) return openDoc(ds.doc);
+  if (ds.deldoc) return deleteDoc(ds.deldoc);
+  if (ds.attach) { const [k, id, m] = ds.attach.split(':'); returnTo = dlg.open && dlg.className === 'wide' ? id : null; return attachForm(k, id, m); }
   if (ds.pay) { const [id, m, src] = ds.pay.split(':'); returnTo = id; return payForm(id, m, src); }
   if (ds.waive) { const [id, m] = ds.waive.split(':'); returnTo = id; return waiveForm(id, m); }
   if (ds.depositFor) { returnTo = ds.depositFor; return depositForm(ds.depositFor); }
