@@ -32,6 +32,23 @@
     }
   }
 
+  // Fine owed if the rent for this row is completed on `date` (used when recording a payment)
+  function fineIfPaidOn(lease, row, date, settings) {
+    const days = Math.max(0, daysBetween(row.deadline, date));
+    return r2(Math.max(0, fineFor(lease, days, settings) - row.finePaid - row.fineWaived));
+  }
+
+  function depositSummary(lease, deposits, payments) {
+    const d = deposits.filter(x => x.lease_id === lease.id);
+    const sum = k => r2(d.filter(x => x.kind === k).reduce((a, x) => a + +x.amount, 0));
+    const applied = r2(payments.filter(p => p.lease_id === lease.id && p.source === 'advance').reduce((a, p) => a + +p.rent_amount + +p.fine_amount, 0));
+    const s = { securityIn: sum('security_in'), securityRefunded: sum('security_refund'), securityRetained: sum('security_retained'),
+      advanceIn: sum('advance_in'), advanceRefunded: sum('advance_refund'), advanceApplied: applied };
+    s.securityHeld = r2(s.securityIn - s.securityRefunded - s.securityRetained);
+    s.advanceBalance = r2(s.advanceIn - s.advanceRefunded - s.advanceApplied);
+    return s;
+  }
+
   function leaseStatus(lease, today) {
     if (lease.start_date > today) return { key: 'upcoming', label: 'Starts ' + lease.start_date };
     if (lease.end_date && lease.end_date < today) return { key: 'ended', label: 'Ended' };
@@ -39,7 +56,8 @@
     return { key: 'active', label: 'Active' };
   }
 
-  function leaseSchedule(lease, payments, settings, today) {
+  function leaseSchedule(lease, payments, settings, today, waivers) {
+    waivers = (waivers || []).filter(w => w.lease_id === lease.id);
     const startK = maxS(monthKey(lease.start_date), monthKey(settings.tracking_start));
     const endK = minS(monthKey(today), lease.end_date ? monthKey(lease.end_date) : '9999-12');
     const pays = payments.filter(p => p.lease_id === lease.id);
@@ -61,10 +79,11 @@
       else if (today <= deadline) status = rentPaid > 0 ? 'partdue' : 'due';
       else { daysLate = daysBetween(deadline, today); status = rentPaid > 0 ? 'partial' : 'unpaid'; }
       const fineAccrued = fineFor(lease, daysLate, settings);
+      const fineWaived = r2(waivers.filter(w => monthKey(w.period) === k).reduce((a, w) => a + +w.amount, 0));
       rows.push({
         month: k, due, deadline, rent, rentPaid: r2(rentPaid), rentOutstanding: r2(Math.max(0, rent - rentPaid)),
-        fullOn, status, daysLate, fineAccrued, finePaid: r2(finePaid),
-        fineOutstanding: r2(Math.max(0, fineAccrued - finePaid)), payments: ps
+        fullOn, status, daysLate, fineAccrued, finePaid: r2(finePaid), fineWaived,
+        fineOutstanding: r2(Math.max(0, fineAccrued - finePaid - fineWaived)), payments: ps
       });
     }
     const overdue = rows.filter(r => r.status === 'partial' || r.status === 'unpaid');
@@ -77,6 +96,7 @@
       arrears: r2(overdue.reduce((a, r) => a + r.rentOutstanding, 0)),
       finesAccrued: r2(rows.reduce((a, r) => a + r.fineAccrued, 0)),
       finesPaid: r2(rows.reduce((a, r) => a + r.finePaid, 0)),
+      finesWaived: r2(rows.reduce((a, r) => a + r.fineWaived, 0)),
       finesOutstanding: r2(rows.reduce((a, r) => a + r.fineOutstanding, 0)),
       overdueMonths: overdue.length, lateMonths: late.length
     };
@@ -88,11 +108,12 @@
     return { rows, summary, record };
   }
 
-  function waterfall(members, payments, expenses, settings, today) {
+  function waterfall(members, payments, expenses, settings, today, other) {
+    other = other || [];
     const active = members.filter(m => m.active);
     const fixed = active.filter(m => m.share_type === 'fixed');
     const equal = active.filter(m => m.share_type === 'equal');
-    const firstPay = payments.reduce((a, p) => minS(a, monthKey(p.received_on)), '9999-12');
+    const firstPay = [...payments.map(p => ({ received_on: p.received_on })), ...other.map(o => ({ received_on: o.date }))].reduce((a, p) => minS(a, monthKey(p.received_on)), '9999-12');
     const startK = minS(monthKey(settings.tracking_start), firstPay);
     const endK = monthKey(today);
     const carry = {}; fixed.forEach(m => (carry[m.id] = 0));
@@ -102,8 +123,9 @@
       const mp = payments.filter(p => monthKey(p.received_on) === k);
       const rent = mp.reduce((a, p) => a + +p.rent_amount, 0);
       const fines = mp.reduce((a, p) => a + +p.fine_amount, 0);
+      const oth = other.filter(o => monthKey(o.date) === k).reduce((a, o) => a + +o.amount, 0);
       const exp = expenses.filter(e => monthKey(e.spent_on) === k).reduce((a, e) => a + +e.amount, 0);
-      const net = rent + fines - exp;
+      const net = rent + fines + oth - exp;
       let pool = net - deficit; deficit = 0;
       if (pool < 0) { deficit = -pool; pool = 0; }
       const shares = {};
@@ -115,7 +137,7 @@
       const each = equal.length ? pool / equal.length : 0;
       for (const m of equal) shares[m.id] = r2(each);
       months.push({
-        month: k, inProgress: k === endK, rent: r2(rent), fines: r2(fines), expenses: r2(exp), net: r2(net),
+        month: k, inProgress: k === endK, rent: r2(rent), fines: r2(fines), other: r2(oth), expenses: r2(exp), net: r2(net),
         shares, perSibling: r2(each), fixedShortfall: Object.values(carry).reduce((a, b) => a + b, 0), deficitCarried: r2(deficit)
       });
     }
@@ -137,6 +159,6 @@
     return { rows, entitled, paid, balance: r2(entitled - paid) };
   }
 
-  const api = { r2, monthKey, addMonths, monthsBetween, daysBetween, addDays, fineFor, leaseStatus, leaseSchedule, waterfall, memberStatement };
+  const api = { r2, monthKey, fineIfPaidOn, depositSummary, addMonths, monthsBetween, daysBetween, addDays, fineFor, leaseStatus, leaseSchedule, waterfall, memberStatement };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Calc = api;
 })(typeof window !== 'undefined' ? window : globalThis);
