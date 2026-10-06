@@ -340,6 +340,13 @@ function afterRender() {
   if (document.getElementById('repMember')) ['repMember', 'repFrom', 'repTo'].forEach(id => document.getElementById(id).onchange = e => { S.rep[id] = e.target.value; render(); });
   const cf = document.getElementById('colFilter'); if (cf) cf.onchange = e => { S.colFilter = e.target.value; render(); };
   const se = document.getElementById('showEnded'); if (se) se.onchange = e => { S.showEnded = e.target.checked; render(); };
+  const ss = document.getElementById('senderStatus');
+  if (ss) {
+    if (S.sender) ss.innerHTML = senderHtml(S.sender);
+    sb.functions.invoke('billing', { body: { mode: 'sender_status' } }).then(({ data }) => {
+      if (!data) return; S.sender = data; const el = document.getElementById('senderStatus'); if (el) el.innerHTML = senderHtml(data);
+    });
+  }
 }
 
 /* ---------- views ---------- */
@@ -618,6 +625,7 @@ function adminView() {
     <tr><td class="muted">Fixed monthly amount</td><td>${mvr(s.fixed_amount)}</td></tr>
     <tr><td class="muted">Daily fine cap</td><td>${num(s.fine_cap_pct)}% of monthly rent per month</td></tr>
     <tr><td class="muted">Automatic emails</td><td>${s.emails_enabled ? chip('good', 'On') : chip('warn', 'Off')} <span class="small faint">invoice on the ${ord(+s.invoice_day)}, reminders every ${s.reminder_interval_days} days</span></td></tr>
+    <tr><td class="muted">Email sender</td><td><span id="senderStatus" class="faint">checking…</span> <button class="btn ghost small" data-act="connect-gmail" style="margin-left:6px">Connect Gmail</button></td></tr>
     <tr><td class="muted">Sender name</td><td>${esc(s.sender_name)}</td></tr>
     <tr><td class="muted">Copy of every email to</td><td>${esc(s.cc_email || 'nobody')}</td></tr>
     <tr><td class="muted">Payment instructions</td><td style="white-space:pre-line">${esc(s.payment_instructions || 'not set')}</td></tr>
@@ -926,6 +934,24 @@ async function billing(action, kind, leaseId, month) {
   await load(); statement(leaseId);
 }
 
+function senderHtml(x) {
+  return x.connected ? `${chip('good', 'Connected')} ${esc(x.user)}` : `${chip('warn', 'Not connected')} ${x.user ? esc(x.user) : ''}`;
+}
+function connectGmailForm() {
+  openForm({ title: 'Connect Gmail', saveLabel: 'Connect and test', fields: [
+    { name: 'user', label: 'Gmail address', type: 'email', required: true },
+    { name: 'password', label: 'App password', type: 'password', required: true, help: '16 letters from myaccount.google.com/apppasswords. Stored securely on the server; nobody can view it in the app.' }],
+    values: { user: S.sender?.user || 'gajuraage@gmail.com' },
+    intro: '<p class="help" style="margin:-8px 0 14px">This checks the login with Gmail and sends a confirmation email to the Settings copy address before saving.</p>',
+    submit: async v => {
+      toast('Checking with Gmail…', 2500);
+      const { data, error } = await sb.functions.invoke('billing', { body: { mode: 'set_sender', user: v.user, password: v.password } });
+      if (error) { toast(await fnError(error), 7000); return false; }
+      S.sender = { user: data.user, connected: true };
+      toast(`Connected. Confirmation email sent to ${data.testSentTo}`, 6000); render();
+    } });
+}
+
 /* ---------- exports ---------- */
 function download(name, text, type = 'text/csv') {
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
@@ -1035,6 +1061,7 @@ document.addEventListener('click', async e => {
       const { error } = await sb.functions.invoke('billing', { body: { mode: 'test' } });
       toast(error ? await fnError(error) : `Test email sent to ${d.settings.cc_email}`, 6000); break;
     }
+    case 'connect-gmail': connectGmailForm(); break;
     case 'csv-collections': csvCollections(); break;
     case 'csv-report': csvReport(); break;
     case 'pdf': pdfReport(); break;
