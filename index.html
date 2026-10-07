@@ -114,6 +114,17 @@ tbody tr{transition:background .15s} tbody tr:hover{background:rgba(212,175,55,.
 .btn.small{padding:6px 11px;font-size:.76rem;border-radius:9px}
 .btn.danger{background:transparent;color:var(--bad);border:1px solid rgba(238,138,116,.3);box-shadow:none}
 .btn:disabled{opacity:.45;cursor:default}
+.drill{cursor:pointer;transition:border-color .15s,transform .15s,box-shadow .15s}
+.drill:hover{border-color:rgba(212,175,55,.55);transform:translateY(-1px);box-shadow:0 10px 26px rgba(0,0,0,.35)}
+.drill:focus-visible,.bars [data-drill]:focus-visible,tr.go:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.kpi .go-hint{float:right;color:var(--gold);opacity:.55;font-size:.95rem;line-height:1;transition:opacity .15s,transform .15s}
+.drill:hover .go-hint{opacity:1;transform:translateX(2px)}
+.bars [data-drill]{cursor:pointer}
+.bars [data-drill]:hover b{filter:brightness(1.18)}
+.bars [data-drill]:hover small{color:var(--gold-hi)}
+tr.go{cursor:pointer}
+tr.go:hover td{background:rgba(212,175,55,.06)}
+tr.go td:first-child{position:relative}
 .linkbtn{background:none;border:0;padding:0;color:var(--gold-hi);font:inherit;font-size:.78rem;cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:rgba(212,175,55,.4)}
 .iconbtn{background:none;border:0;color:var(--faint);cursor:pointer;font-size:.95rem;padding:2px 6px}
 .iconbtn:hover{color:var(--bad)}
@@ -269,7 +280,7 @@ const LSTAT = { active: 'good', expiring: 'warn', ended: '', upcoming: 'gold' };
 const RECORD = { clean: 'good', late: 'warn', arrears: 'bad', none: '' };
 const INVSTAT = { sent: 'good', failed: 'bad', pending: 'warn' };
 const KIND = { rent: 'Rent invoice', fine: 'Fine invoice', reminder: 'Reminder', receipt: 'Payment receipt', statement: 'Ageing statement' };
-const DEPKIND = { security_in: 'Security deposit received', security_refund: 'Security deposit refunded', security_retained: 'Security deposit kept', advance_in: 'Advance rent received', advance_refund: 'Advance rent refunded' };
+const DEPKIND = { security_in: 'Security deposit received', security_refund: 'Security deposit refunded', security_retained: 'Deposit shared out to owners', advance_in: 'Advance rent received', advance_refund: 'Advance rent refunded' };
 const chip = (cls, text) => `<span class="chip ${cls}">${esc(text)}</span>`;
 
 function fineText(l, settings) {
@@ -493,26 +504,26 @@ function overview() {
   if (failed.length) alerts.push(['bad', 'Email', `${failed.length} invoice email(s) failed to send this week. See Invoices.`]);
   return `
   <div class="grid kpis">
-    <div class="card kpi"><div class="l">Collected ${fMonth(cur.month)}</div><div class="v gold">${big(cur.rent + cur.fines)}</div><div class="n">of ${mvr(rentRoll)} monthly rent roll</div></div>
-    <div class="card kpi"><div class="l">Since ${fMonthShort(C.monthKey(s.tracking_start))}</div><div class="v">${big(collected)}</div><div class="n">rent and fines received</div></div>
-    <div class="card kpi ${arrears ? 'bad' : 'good'}"><div class="l">Rent overdue</div><div class="v">${big(arrears)}</div><div class="n">${fines ? mvr(fines) + ' fines outstanding' : 'no fines outstanding'}</div></div>
-    <div class="card kpi"><div class="l">Paid out to family</div><div class="v">${big(paidOut)}</div><div class="n">${mvr(Math.max(0, entitled - paidOut))} earned, not yet paid</div></div>
-    <div class="card kpi"><div class="l">Held for tenants</div><div class="v">${big(held)}</div><div class="n">deposits and unused advances</div></div>
+    <div class="card kpi drill" data-drill="month:${cur.month}" role="button" tabindex="0" title="See every payment received this month"><div class="l">Collected ${fMonth(cur.month)}<span class="go-hint" aria-hidden="true">›</span></div><div class="v gold">${big(cur.rent + cur.fines)}</div><div class="n">of ${mvr(rentRoll)} monthly rent roll</div></div>
+    <div class="card kpi drill" data-drill="since" role="button" tabindex="0" title="See collections month by month and by tenant"><div class="l">Since ${fMonthShort(wf.months[0]?.month || C.monthKey(s.tracking_start))}<span class="go-hint" aria-hidden="true">›</span></div><div class="v">${big(collected)}</div><div class="n">rent and fines received</div></div>
+    <div class="card kpi drill ${arrears ? 'bad' : 'good'}" data-drill="overdue" role="button" tabindex="0" title="See arrears and fines by tenant"><div class="l">Rent overdue<span class="go-hint" aria-hidden="true">›</span></div><div class="v">${big(arrears)}</div><div class="n">${fines ? mvr(fines) + ' fines outstanding' : 'no fines outstanding'}</div></div>
+    <div class="card kpi drill" data-drill="paid" role="button" tabindex="0" title="See payouts by member and by month"><div class="l">Paid out to family<span class="go-hint" aria-hidden="true">›</span></div><div class="v">${big(paidOut)}</div><div class="n">${mvr(Math.max(0, entitled - paidOut))} earned, not yet paid</div></div>
+    <div class="card kpi drill" data-drill="held" role="button" tabindex="0" title="See deposits and advances by tenant"><div class="l">Held for tenants<span class="go-hint" aria-hidden="true">›</span></div><div class="v">${big(held)}</div><div class="n">deposits and unused advances</div></div>
   </div>
   <div class="grid cols" style="margin-top:14px">
     <div class="card">
-      <div class="row between"><div><div class="eyebrow">Cash received</div><h3>Monthly collections</h3></div><span class="small faint">Striped: month in progress</span></div>
-      ${months.length ? `<div class="bars">${months.map(m => `<div title="${fMonth(m.month)}: ${mvr(m.rent + m.fines)}"><span class="val">${num(Math.round((m.rent + m.fines) / 1000))}k</span><b class="${m.inProgress ? 'prog' : ''}" style="height:${Math.max(1, Math.round((m.rent + m.fines) / maxBar * 100))}%"></b><small>${fMonthShort(m.month)}</small></div>`).join('')}</div>` : '<div class="empty">No months tracked yet</div>'}
+      <div class="row between"><div><div class="eyebrow">Cash received</div><h3>Monthly collections</h3></div><span class="small faint">Tap a bar for details · striped: in progress</span></div>
+      ${months.length ? `<div class="bars">${months.map(m => `<div data-drill="month:${m.month}" role="button" tabindex="0" title="${fMonth(m.month)}: ${mvr(m.rent + m.fines)}. Tap for details"><span class="val">${num(Math.round((m.rent + m.fines) / 1000))}k</span><b class="${m.inProgress ? 'prog' : ''}" style="height:${Math.max(1, Math.round((m.rent + m.fines) / maxBar * 100))}%"></b><small>${fMonthShort(m.month)}</small></div>`).join('')}</div>` : '<div class="empty">No months tracked yet</div>'}
     </div>
-    <div class="card">
-      <div class="eyebrow">The family share</div><h3>How a full month is divided</h3>
+    <div class="card drill" data-drill="roll" role="button" tabindex="0" title="See the agreements behind the rent roll">
+      <div class="eyebrow">The family share<span class="go-hint" aria-hidden="true" style="float:right;font-size:.95rem;letter-spacing:0">›</span></div><h3>How a full month is divided</h3>
       <table style="margin-top:10px"><tbody>
         <tr><td>Monthly rent roll</td><td class="num">${mvr(rentRoll)}</td></tr>
         ${d.members.filter(m => m.active && m.share_type === 'fixed').map(m => `<tr><td>${esc(m.name)} <span class="faint">(fixed, paid first)</span></td><td class="num">− ${mvr(s.fixed_amount)}</td></tr>`).join('')}
         <tr><td>Balance shared equally by ${eq}</td><td class="num">${mvr(Math.max(0, rentRoll - +s.fixed_amount * fixedN))}</td></tr>
         <tr><td style="color:var(--gold-hi)">Each sibling</td><td class="num" style="color:var(--gold-hi);font-weight:600">${mvr(C.r2(perSib))}</td></tr>
       </tbody></table>
-      <p class="help">Worked out on cash actually received each month, after building expenses. Deposits are held, not shared.</p>
+      <p class="help">Worked out on cash actually received each month, after building expenses. Deposits and advances count in the month they are shared out; any still held are shown under Held for tenants. Tap for the agreements behind this.</p>
     </div>
   </div>
   <div class="section-head"><div><div class="eyebrow">Action list</div><h2>Needs attention</h2></div></div>
@@ -630,7 +641,7 @@ function shares() {
   return `<div class="section-head"><div><div class="eyebrow">To date</div><h2>Each member's position</h2></div></div>
   <div class="tablewrap"><table>
     <thead><tr><th>Member</th><th>Share</th><th class="num">Earned</th><th class="num">Paid out</th><th class="num">Still owed</th></tr></thead>
-    <tbody>${d.sharers.map(m => { const st = d.statements[m.id]; return `<tr${d.me?.id === m.id ? ' style="background:rgba(212,175,55,.07)"' : ''}>
+    <tbody>${d.sharers.map(m => { const st = d.statements[m.id]; return `<tr class="go" data-drill="member:${m.id}"${d.me?.id === m.id ? ' style="background:rgba(212,175,55,.07)"' : ''}>
       <td>${esc(m.name)}<div class="small faint">${esc(m.relation || '')}</div></td>
       <td class="small">${m.share_type === 'fixed' ? mvr(d.settings.fixed_amount) + ' fixed' : 'Equal 1/' + wf.equalIds.length + ' of balance'}</td>
       <td class="num">${num(st.entitled)}</td><td class="num">${num(st.paid)}</td>
@@ -640,8 +651,8 @@ function shares() {
 
   <div class="section-head"><div><div class="eyebrow">Waterfall</div><h2>Month by month</h2></div></div>
   <div class="tablewrap"><table>
-    <thead><tr><th>Month</th><th class="num">Rent</th><th class="num">Fines</th>${hasOther ? '<th class="num">Deposits kept</th>' : ''}<th class="num">Expenses</th><th class="num">To share</th>${fixed.map(m => `<th class="num">${esc(m.name)}</th>`).join('')}<th class="num">Each sibling</th></tr></thead>
-    <tbody>${wf.months.slice().reverse().map(m => `<tr>
+    <thead><tr><th>Month</th><th class="num">Rent</th><th class="num">Fines</th>${hasOther ? '<th class="num">Deposits shared</th>' : ''}<th class="num">Expenses</th><th class="num">To share</th>${fixed.map(m => `<th class="num">${esc(m.name)}</th>`).join('')}<th class="num">Each sibling</th></tr></thead>
+    <tbody>${wf.months.slice().reverse().map(m => `<tr class="go" data-drill="month:${m.month}">
       <td style="white-space:nowrap">${fMonth(m.month)}${m.inProgress ? ' ' + chip('gold', 'in progress') : ''}</td>
       <td class="num">${num(m.rent)}</td><td class="num">${num(m.fines)}</td>${hasOther ? `<td class="num">${m.other ? num(m.other) : '–'}</td>` : ''}<td class="num">${m.expenses ? num(m.expenses) : '–'}</td>
       <td class="num">${num(m.net)}</td>${fixed.map(f => `<td class="num">${num(m.shares[f.id] || 0)}</td>`).join('')}
@@ -796,6 +807,173 @@ function statement(id) {
   </div>`;
   dlg.querySelector('[data-x=close]').onclick = () => dlg.close();
   if (!dlg.open) dlg.showModal();
+}
+
+/* ---------- drill-downs: how each figure on the overview is built ---------- */
+const sumBox = items => `<div class="split">${items.filter(Boolean).map(([l, v, c]) => `<div class="card"><div class="small faint">${l}</div><div${c ? ` style="color:${c}"` : ''}>${v}</div></div>`).join('')}</div>`;
+const dh = (t, note = '') => `<h3 style="margin:22px 0 8px;font-size:1.15rem">${t}</h3>${note ? `<p class="small faint" style="margin:-2px 0 10px">${note}</p>` : ''}`;
+const dtable = (head, rows, foot) => `<div class="tablewrap"><table><thead><tr>${head}</tr></thead><tbody>${rows || '<tr><td class="empty" colspan="9">Nothing recorded</td></tr>'}</tbody>${foot ? `<tfoot><tr>${foot}</tr></tfoot>` : ''}</table></div>`;
+const goRow = (attrs, cells) => `<tr ${attrs} class="go">${cells}</tr>`;
+
+function drillShell(eyebrow, title, sub, body, back) {
+  dlg.className = 'wide';
+  dlg.innerHTML = `<div class="inner">
+    <div class="dhead"><div>${back ? `<button class="linkbtn" data-drill="${esc(back)}" style="margin-bottom:8px">‹ Back</button>` : ''}<div class="eyebrow">${eyebrow}</div><h3 style="margin:0 0 4px">${title}</h3>${sub ? `<p class="small faint" style="margin:0;max-width:640px">${sub}</p>` : ''}</div><button class="iconbtn" data-x="close" style="font-size:1.2rem;flex:none" aria-label="Close">✕</button></div>
+    ${body}</div>`;
+  dlg.querySelector('[data-x=close]').onclick = () => dlg.close();
+  if (!dlg.open) dlg.showModal();
+  dlg.scrollTop = 0;
+}
+
+function drill(key, back) {
+  const i = key.indexOf(':'), kind = i < 0 ? key : key.slice(0, i), arg = i < 0 ? '' : key.slice(i + 1);
+  const fn = { month: drillMonth, since: drillSince, overdue: drillOverdue, paid: drillPaid, member: drillMember, held: drillHeld, roll: drillRoll }[kind];
+  if (fn) fn(arg, back);
+}
+
+function drillMonth(k, back) {
+  const d = S.data, wf = d.wf, m = wf.months.find(x => x.month === k);
+  if (!m) return toast('No figures recorded for ' + fMonth(k));
+  const me = `month:${k}`;
+  const pays = d.payments.filter(p => C.monthKey(p.received_on) === k).sort((a, b) => (a.received_on < b.received_on ? -1 : 1));
+  const shared = d.deposits.filter(x => x.kind === 'security_retained' && C.monthKey(x.occurred_on) === k);
+  const exps = d.expenses.filter(e => C.monthKey(e.spent_on) === k);
+  const outs = d.distributions.filter(x => C.monthKey(x.for_month) === k);
+  const fixed = wf.fixedIds.map(id => d.memberById[id]), eq = wf.equalIds.length;
+  const due = d.leases.map(l => ({ l, r: d.sched[l.id].rows.find(x => x.month === k) })).filter(x => x.r && x.r.rent > 0);
+  const paidOut = outs.reduce((a, x) => a + +x.amount, 0), toShare = Object.values(m.shares).reduce((a, x) => a + x, 0);
+  const otherNote = pays.filter(p => C.monthKey(p.period) !== k).length;
+
+  const calc = [
+    ['Rent received', m.rent], m.fines ? ['Late fines received', m.fines] : null,
+    m.other ? ['Deposits and advances shared out', m.other] : null,
+    m.expenses ? ['Less building expenses', -m.expenses] : null
+  ].filter(Boolean).map(([l, v]) => `<tr><td>${l}</td><td class="num">${v < 0 ? '− ' + num(-v) : num(v)}</td></tr>`).join('')
+    + `<tr><td><b>Money to share</b></td><td class="num"><b>${num(m.net)}</b></td></tr>`
+    + fixed.map(f => `<tr><td>${esc(f.name)} <span class="faint">(fixed, paid first)</span></td><td class="num">− ${num(m.shares[f.id] || 0)}</td></tr>`).join('')
+    + `<tr><td>Balance shared equally by ${eq}</td><td class="num">${num(C.r2(m.perSibling * eq))}</td></tr>`
+    + `<tr><td style="color:var(--gold-hi)">Each sibling</td><td class="num" style="color:var(--gold-hi);font-weight:600">${num(m.perSibling)}</td></tr>`;
+
+  const body = `
+    ${sumBox([['Rent and fines received', mvr(m.rent + m.fines)], m.other ? ['Deposits shared out', mvr(m.other)] : null, ['Money to share', mvr(m.net)], ['Each sibling', mvr(m.perSibling), 'var(--gold-hi)']])}
+    ${dh('How the share was worked out', `Shares follow the cash that arrived in ${fMonth(k)}, whichever month it was paid for.${m.fixedShortfall ? ` ${mvr(m.fixedShortfall)} of the fixed amount was short and carries into the next month.` : ''}`)}
+    <div class="tablewrap"><table><tbody>${calc}</tbody></table></div>
+    ${due.length ? dh('Rent due for ' + fMonth(k), 'Tap a tenant to open their full rent record.') + dtable('<th>Tenant</th><th class="num">Rent due</th><th class="num">Received</th><th class="num">Outstanding</th><th>Status</th>',
+      due.map(({ l, r }) => goRow(`data-statement="${l.id}"`, `<td>${esc(d.leaseName(l))}</td><td class="num">${num(r.rent)}</td><td class="num">${num(r.rentPaid)}</td><td class="num">${r.rentOutstanding ? `<b style="color:var(--warn)">${num(r.rentOutstanding)}</b>` : '–'}</td><td>${chip(STATUS[r.status][0], STATUS[r.status][1](r))}</td>`)).join(''),
+      `<td>Total (MVR)</td><td class="num">${num(due.reduce((a, x) => a + x.r.rent, 0))}</td><td class="num">${num(due.reduce((a, x) => a + x.r.rentPaid, 0))}</td><td class="num">${num(due.reduce((a, x) => a + x.r.rentOutstanding, 0))}</td><td></td>`) : ''}
+    ${dh(`Money received in ${fMonth(k)}`, otherNote ? `${otherNote} payment(s) were for another month, such as rent paid early or late. They still count towards ${fMonth(k)}'s share because that is when the money arrived.` : '')}
+    ${dtable('<th>Received</th><th>Tenant</th><th>For</th><th class="num">Amount</th><th>Reference</th>',
+      pays.map(p => { const l = d.leaseById[p.lease_id]; return goRow(`data-statement="${p.lease_id}"`, `<td style="white-space:nowrap">${fDate(p.received_on)}</td><td>${esc(d.leaseName(l))}</td><td style="white-space:nowrap">${fMonth(C.monthKey(p.period))}</td><td class="num">${num(+p.rent_amount + +p.fine_amount)}</td><td class="small">${esc([p.method, p.reference].filter(Boolean).join(' · '))}${p.note ? `<div class="faint">${esc(p.note)}</div>` : ''}</td>`); }).join(''),
+      `<td colspan="3">Total (MVR)</td><td class="num">${num(m.rent + m.fines)}</td><td></td>`)}
+    ${shared.length ? dh('Deposits and advances shared out', 'These were distributed to the co-owners when received, so they count as money to share this month.') + dtable('<th>Date</th><th>Tenant</th><th class="num">Amount</th><th>Note</th>',
+      shared.map(x => goRow(`data-statement="${x.lease_id}"`, `<td>${fDate(x.occurred_on)}</td><td>${esc(d.leaseName(d.leaseById[x.lease_id]))}</td><td class="num">${num(x.amount)}</td><td class="small faint">${esc(x.note || '')}</td>`)).join('')) : ''}
+    ${exps.length ? dh('Building expenses') + dtable('<th>Date</th><th>Description</th><th class="num">Amount</th>', exps.map(e => `<tr><td>${fDate(e.spent_on)}</td><td>${esc(e.description)}</td><td class="num">${num(e.amount)}</td></tr>`).join('')) : ''}
+    ${dh('Paid out to the family for ' + fMonth(k), `${mvr(paidOut)} paid against ${mvr(toShare)} earned for this month. Tap a member for their full history.`)}
+    ${dtable('<th>Member</th><th class="num">Earned</th><th class="num">Paid</th><th>Paid on</th><th>Method</th>',
+      d.sharers.map(mm => { const ps = outs.filter(x => x.member_id === mm.id), p = ps.reduce((a, x) => a + +x.amount, 0), e = m.shares[mm.id] || 0;
+        return goRow(`data-drill="member:${mm.id}" data-back="${me}"`, `<td>${esc(mm.name)}</td><td class="num">${num(e)}</td><td class="num">${C.r2(p - e) < 0 ? `<b style="color:var(--warn)">${num(p)}</b>` : num(p)}</td><td style="white-space:nowrap">${[...new Set(ps.map(x => fDate(x.paid_on)))].join(', ') || '<span class="faint">–</span>'}</td><td class="small">${esc([...new Set(ps.map(x => x.method).filter(Boolean))].join(', '))}</td>`); }).join(''),
+      `<td>Total (MVR)</td><td class="num">${num(toShare)}</td><td class="num">${num(paidOut)}</td><td colspan="2"></td>`)}`;
+  drillShell(m.inProgress ? 'Month in progress' : 'Month', fMonth(k), '', body, back);
+}
+
+function drillSince(arg, back) {
+  const d = S.data, wf = d.wf, ms = wf.months.slice().reverse();
+  const t = k => wf.months.reduce((a, m) => a + m[k], 0);
+  const byLease = d.leases.map(l => { const ps = d.payments.filter(p => p.lease_id === l.id); return { l, n: ps.length, amt: ps.reduce((a, p) => a + +p.rent_amount + +p.fine_amount, 0), first: ps.map(p => p.received_on).sort()[0], last: ps.map(p => p.received_on).sort().pop() }; }).filter(x => x.n).sort((a, b) => b.amt - a.amt);
+  const body = `
+    ${sumBox([['Rent and fines received', mvr(t('rent') + t('fines'))], t('other') ? ['Deposits and advances shared', mvr(t('other'))] : null, t('expenses') ? ['Building expenses', mvr(t('expenses'))] : null, ['Months', wf.months.length]])}
+    ${dh('Month by month', 'Tap a month to see every payment received and how it was shared.')}
+    ${dtable('<th>Month</th><th class="num">Rent and fines</th><th class="num">Deposits shared</th><th class="num">Expenses</th><th class="num">To share</th><th class="num">Each sibling</th>',
+      ms.map(m => goRow(`data-drill="month:${m.month}" data-back="since"`, `<td style="white-space:nowrap">${fMonth(m.month)}${m.inProgress ? ' ' + chip('gold', 'in progress') : ''}</td><td class="num">${num(m.rent + m.fines)}</td><td class="num">${m.other ? num(m.other) : '–'}</td><td class="num">${m.expenses ? num(m.expenses) : '–'}</td><td class="num">${num(m.net)}</td><td class="num" style="color:var(--gold-hi)">${num(m.perSibling)}</td>`)).join(''),
+      `<td>Total (MVR)</td><td class="num">${num(t('rent') + t('fines'))}</td><td class="num">${num(t('other'))}</td><td class="num">${num(t('expenses'))}</td><td class="num">${num(t('net'))}</td><td class="num">${num(t('perSibling'))}</td>`)}
+    ${dh('By tenant', 'Tap a tenant to open their full rent record.')}
+    ${dtable('<th>Tenant</th><th class="num">Payments</th><th>From</th><th>To</th><th class="num">Received</th>',
+      byLease.map(x => goRow(`data-statement="${x.l.id}"`, `<td>${esc(d.leaseName(x.l))}</td><td class="num">${x.n}</td><td style="white-space:nowrap">${fDate(x.first)}</td><td style="white-space:nowrap">${fDate(x.last)}</td><td class="num">${num(x.amt)}</td>`)).join(''),
+      `<td>Total (MVR)</td><td class="num">${byLease.reduce((a, x) => a + x.n, 0)}</td><td colspan="2"></td><td class="num">${num(byLease.reduce((a, x) => a + x.amt, 0))}</td>`)}`;
+  drillShell('Cash received', `Since ${fMonth(wf.months[0]?.month)}`, 'Every rent and fine payment received into the collection account, by the month the money arrived. Deposits and advances that were shared out are shown separately and are not part of this total.', body, back);
+}
+
+function drillOverdue(arg, back) {
+  const d = S.data, s = d.settings;
+  const rows = d.leases.map(l => ({ l, sc: d.sched[l.id] })).filter(x => x.sc.rows.length).sort((a, b) => b.sc.summary.arrears - a.sc.summary.arrears);
+  const tot = k => rows.reduce((a, x) => a + x.sc.summary[k], 0);
+  const body = `
+    ${sumBox([['Rent overdue', mvr(tot('arrears')), tot('arrears') ? 'var(--bad)' : 'var(--good)'], ['Fines outstanding', mvr(tot('finesOutstanding'))], ['Months paid late', rows.reduce((a, x) => a + x.sc.summary.lateMonths, 0)]])}
+    ${dh('By tenant', 'Tap a tenant to see each month, when it was paid and any fines.')}
+    ${dtable('<th>Tenant</th><th class="num">Months due</th><th class="num">Overdue</th><th class="num">Fines owed</th><th>Record</th>',
+      rows.map(({ l, sc }) => goRow(`data-statement="${l.id}"`, `<td>${esc(d.leaseName(l))}</td><td class="num">${sc.summary.monthsDue}</td><td class="num">${sc.summary.arrears ? `<b style="color:var(--bad)">${num(sc.summary.arrears)}</b>` : '–'}</td><td class="num">${sc.summary.finesOutstanding ? num(sc.summary.finesOutstanding) : '–'}</td><td>${chip(RECORD[sc.record.key], sc.record.label)}</td>`)).join(''),
+      `<td>Total (MVR)</td><td></td><td class="num">${num(tot('arrears'))}</td><td class="num">${num(tot('finesOutstanding'))}</td><td></td>`)}`;
+  drillShell('Rent overdue', 'Arrears and fines', `Rent is counted as overdue once its due date (plus any grace days) has passed without full payment. Months are tracked from ${fDate(s.tracking_start)}; earlier months are history only.`, body, back);
+}
+
+function drillPaid(arg, back) {
+  const d = S.data, wf = d.wf;
+  const st = d.sharers.map(m => ({ m, s: d.statements[m.id] }));
+  const months = [...new Set(d.distributions.map(x => C.monthKey(x.for_month)))].sort().reverse();
+  const unpaid = st.reduce((a, x) => a + Math.max(0, x.s.balance), 0);
+  const body = `
+    ${sumBox([['Paid out', mvr(st.reduce((a, x) => a + x.s.paid, 0))], ['Earned', mvr(st.reduce((a, x) => a + x.s.entitled, 0))], ['Earned, not yet paid', mvr(unpaid), unpaid ? 'var(--gold-hi)' : 'var(--good)']])}
+    ${dh('By member', 'Tap a member to see every month they were paid for.')}
+    ${dtable('<th>Member</th><th>Share</th><th class="num">Earned</th><th class="num">Paid out</th>',
+      st.map(({ m, s }) => goRow(`data-drill="member:${m.id}" data-back="paid"`, `<td>${esc(m.name)}</td><td class="small">${m.share_type === 'fixed' ? mvr(d.settings.fixed_amount) + ' fixed, paid first' : 'Equal 1/' + wf.equalIds.length + ' of balance'}</td><td class="num">${num(s.entitled)}</td><td class="num">${num(s.paid)}${C.r2(s.balance) > 0 ? `<div class="small" style="color:var(--gold-hi)">${num(s.balance)} to pay</div>` : ''}</td>`)).join(''),
+      `<td colspan="2">Total (MVR)</td><td class="num">${num(st.reduce((a, x) => a + x.s.entitled, 0))}</td><td class="num">${num(st.reduce((a, x) => a + x.s.paid, 0))}</td>`)}
+    ${dh('By month', 'Tap a month to see the money received and how it was shared.')}
+    ${dtable('<th>Month</th><th class="num">Money to share</th><th class="num">Paid out</th><th>Paid on</th>',
+      months.map(k => { const os = d.distributions.filter(x => C.monthKey(x.for_month) === k), m = wf.months.find(x => x.month === k);
+        return goRow(`data-drill="month:${k}" data-back="paid"`, `<td style="white-space:nowrap">${fMonth(k)}</td><td class="num">${m ? num(m.net) : '–'}</td><td class="num">${num(os.reduce((a, x) => a + +x.amount, 0))}</td><td class="small">${[...new Set(os.map(x => fDate(x.paid_on)))].join(', ')}</td>`); }).join(''))}
+    <p class="help">Every co-owner receives an equal share. Where an actual bank transfer differed, it reflects personal loans or borrowings between the Family Treasurer and that co-owner, which are kept outside the Gajuraage books.</p>`;
+  drillShell('Paid out to family', 'Distributions', `${d.settings.fixed_amount ? `The fixed amount is paid first each month, then the balance is shared equally by ${wf.equalIds.length}.` : ''}`, body, back);
+}
+
+function drillMember(id, back) {
+  const d = S.data, m = d.memberById[id], s = d.statements[id];
+  if (!m || !s) return;
+  const rows = s.rows.slice().reverse();
+  const body = `
+    ${sumBox([['Earned', mvr(s.entitled)], ['Paid out', mvr(s.paid)], ['Months', rows.length]])}
+    ${dh('Month by month', 'Tap a month to see how that month\'s share was worked out.')}
+    ${dtable('<th>Month</th><th class="num">Money to share</th><th class="num">Share earned</th><th class="num">Paid</th><th>Paid on</th>',
+      rows.map(r => goRow(`data-drill="month:${r.month}" data-back="member:${id}"`, `<td style="white-space:nowrap">${fMonth(r.month)}${r.inProgress ? ' ' + chip('gold', 'in progress') : ''}</td><td class="num">${num(r.buildingNet)}</td><td class="num" style="color:var(--gold-hi)">${num(r.entitlement)}</td><td class="num">${num(r.paid)}</td><td class="small">${r.payouts.map(p => fDate(p.paid_on)).join(', ') || '<span class="faint">–</span>'}</td>`)).join(''),
+      `<td colspan="2">Total (MVR)</td><td class="num">${num(s.entitled)}</td><td class="num">${num(s.paid)}</td><td></td>`)}`;
+  drillShell(m.share_type === 'fixed' ? `Fixed ${mvr(d.settings.fixed_amount)} a month, paid first` : `Equal 1/${d.wf.equalIds.length} share`, esc(m.name), esc(m.relation || ''), body, back);
+}
+
+function drillHeld(arg, back) {
+  const d = S.data;
+  const rows = d.leases.map(l => ({ l, x: d.dep[l.id] })).filter(({ x }) => x.securityIn || x.advanceIn || x.advanceApplied);
+  const t = k => rows.reduce((a, r) => a + r.x[k], 0);
+  const held = t('securityHeld') + t('advanceBalance');
+  const body = `
+    ${sumBox([['Held for tenants', mvr(held)], ['Deposits received', mvr(t('securityIn'))], ['Shared out to owners', mvr(t('securityRetained'))], ['Refunded', mvr(t('securityRefunded') + t('advanceRefunded'))]])}
+    ${dh('By tenant', 'Tap a tenant to open their record, including every deposit entry.')}
+    ${dtable('<th>Tenant</th><th class="num">Deposit received</th><th class="num">Shared out</th><th class="num">Refunded</th><th class="num">Deposit held</th><th class="num">Advance unused</th>',
+      rows.map(({ l, x }) => goRow(`data-statement="${l.id}"`, `<td>${esc(d.leaseName(l))}</td><td class="num">${num(x.securityIn)}</td><td class="num">${x.securityRetained ? num(x.securityRetained) : '–'}</td><td class="num">${x.securityRefunded ? num(x.securityRefunded) : '–'}</td><td class="num">${num(x.securityHeld)}</td><td class="num">${x.advanceBalance ? num(x.advanceBalance) : '–'}</td>`)).join(''),
+      `<td>Total (MVR)</td><td class="num">${num(t('securityIn'))}</td><td class="num">${num(t('securityRetained'))}</td><td class="num">${num(t('securityRefunded'))}</td><td class="num">${num(t('securityHeld'))}</td><td class="num">${num(t('advanceBalance'))}</td>`)}
+    ${dh('Every deposit entry')}
+    ${depositsTable(d.deposits)}
+    <p class="help">A deposit marked as shared out was distributed to the co-owners when it arrived, so it is no longer held. It may still be refundable to the tenant when the lease ends, in which case the co-owners would fund the refund.</p>`;
+  drillShell('Held for tenants', 'Deposits and advances', 'Money received from tenants that is not rent: security deposits still held and advance rent not yet used up.', body, back);
+}
+
+function drillRoll(arg, back) {
+  const d = S.data, s = d.settings, wf = d.wf, k = C.monthKey(d.today);
+  const live = d.liveLeases.map(l => ({ l, rent: d.curRent(l), next: C.nextStep(l, k) })).sort((a, b) => b.rent - a.rent);
+  const roll = live.reduce((a, x) => a + x.rent, 0), fixedN = wf.fixedIds.length, eq = wf.equalIds.length;
+  const bal = Math.max(0, roll - +s.fixed_amount * fixedN);
+  const body = `
+    ${dh('Agreements in force today', 'Tap a tenant to open their agreement and rent record.')}
+    ${dtable('<th>Tenant</th><th class="num">Monthly rent</th><th>Next change</th><th>Agreement ends</th>',
+      live.map(({ l, rent, next }) => goRow(`data-statement="${l.id}"`, `<td>${esc(d.leaseName(l))}</td><td class="num">${num(rent)}</td><td class="small">${next ? `${mvr(next.monthly_rent)} from ${fMonth(C.monthKey(next.effective_from))}` : '<span class="faint">–</span>'}</td><td style="white-space:nowrap">${l.end_date ? fDate(l.end_date) : '<span class="faint">open</span>'}</td>`)).join(''),
+      `<td>Monthly rent roll</td><td class="num">${num(roll)}</td><td colspan="2"></td>`)}
+    ${dh('How a full month is divided')}
+    <div class="tablewrap"><table><tbody>
+      <tr><td>Monthly rent roll</td><td class="num">${num(roll)}</td></tr>
+      ${wf.fixedIds.map(id => `<tr><td>${esc(d.memberById[id].name)} <span class="faint">(fixed, paid first)</span></td><td class="num">− ${num(s.fixed_amount)}</td></tr>`).join('')}
+      <tr><td>Balance shared equally by ${eq}</td><td class="num">${num(bal)}</td></tr>
+      <tr><td style="color:var(--gold-hi)">Each sibling</td><td class="num" style="color:var(--gold-hi);font-weight:600">${num(C.r2(eq ? bal / eq : 0))}</td></tr>
+    </tbody></table></div>
+    <p class="help">This is a full month at today's rents. Actual shares follow the cash received each month (see the monthly collections), so a month with late, early or reduced rent will differ.</p>`;
+  drillShell('The family share', 'Monthly rent roll', '', body, back);
 }
 
 /* ---------- forms ---------- */
@@ -1281,10 +1459,14 @@ function pdfReport() {
 }
 
 /* ---------- events ---------- */
+document.addEventListener('keydown', e => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[data-drill][tabindex],tr.go[tabindex]')) { e.preventDefault(); e.target.click(); }
+});
 document.addEventListener('click', async e => {
-  const t = e.target.closest('[data-tab],[data-act],[data-del],[data-edit],[data-setpw],[data-statement],[data-pay],[data-waive],[data-bill],[data-deposit-for],[data-doc],[data-deldoc],[data-attach],[data-receipt],[data-approve],[data-decline],[data-steps],[data-delstep]');
+  const t = e.target.closest('[data-drill],[data-tab],[data-act],[data-del],[data-edit],[data-setpw],[data-statement],[data-pay],[data-waive],[data-bill],[data-deposit-for],[data-doc],[data-deldoc],[data-attach],[data-receipt],[data-approve],[data-decline],[data-steps],[data-delstep]');
   if (!t) return;
   const ds = t.dataset, d = S.data;
+  if (ds.drill) return drill(ds.drill, ds.back);
   if (ds.tab) { S.tab = ds.tab; window.scrollTo(0, 0); return render(); }
   if (ds.statement) { S.lastStatement = ds.statement; return statement(ds.statement); }
   if (ds.steps) return stepsDialog(ds.steps);
